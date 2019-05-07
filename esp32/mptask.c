@@ -84,6 +84,8 @@
 #include "sflash_diskio_littlefs.h"
 #include "lteppp.h"
 
+#include "ens_calibration.h"
+
 
 /******************************************************************************
  DECLARE EXTERNAL FUNCTIONS
@@ -226,6 +228,14 @@ soft_reset:
     if (updater_read_boot_info (&boot_info, &boot_info_offset)) {
         safeboot = boot_info.safeboot;
     }
+
+    bool power_fail = get_power_fail_state();
+    if (power_fail == true)
+    {
+        printf("Power fail boot\n");
+    }
+
+
     if (!soft_reset) {
         if (config_get_wdt_on_boot()) {
             uint32_t timeout_ms = config_get_wdt_on_boot_timeout();
@@ -236,7 +246,7 @@ soft_reset:
                 config_set_wdt_on_boot(false);
             }
         }
-        if (wifi_on_boot) {
+        if (wifi_on_boot && !power_fail) {
             mptask_enable_wifi_ap();
         }
         // these ones are special because they need uPy running and they launch tasks
@@ -273,6 +283,13 @@ soft_reset:
     // enable telnet and ftp
     if (wifi_on_boot) {
         servers_start();
+    }
+
+    // ENS forced calibration mode. Do not run any
+    if(is_forced_calibration_mode() == true)
+    {
+        printf("P9 low: Forced Calibration mode\n");
+        disable_display_uart_and_wait();
     }
 
     pyexec_frozen_module("_boot.py");

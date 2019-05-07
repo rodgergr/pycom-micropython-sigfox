@@ -80,6 +80,7 @@ APP_MAIN_SRC_C = \
 	serverstask.c \
 	fatfs_port.c \
 	pycom_config.c \
+	ens_calibration.c \
 	mpthreadport.c \
 
 APP_HAL_SRC_C = $(addprefix hal/,\
