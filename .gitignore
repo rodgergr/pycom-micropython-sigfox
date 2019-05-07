@@ -54,3 +54,6 @@ flash_encryption_key.bin
 org.eclipse.cdt.ui.prefs
 org.eclipse.cdt.core.prefs
 language.settings.xml
+
+#vscode files
+.vscode/
