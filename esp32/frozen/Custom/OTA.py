@@ -1,6 +1,11 @@
+#!/usr/bin/env python
+"""OTA.py: PowerPilot python LoRa"""
+__version__="0.6.0"
+__author__="Pycom"
+
+
 import network
 import socket
-import ssl
 import machine
 import ujson
 import uhashlib
@@ -8,13 +13,13 @@ import ubinascii
 import gc
 import pycom
 import os
-from binascii import hexlify
+import machine
 
 # Try to get version number
-# try:
-#     from OTA_VERSION import VERSION
-# except ImportError:
-#     VERSION = '1.0.0'
+try:
+    from globs import VERSION
+except ImportError:
+    VERSION = '1.0.0'
 
 
 class OTA():
@@ -30,29 +35,21 @@ class OTA():
     # OTA methods
 
     def get_current_version(self):
-        return os.uname().release
+        return VERSION
 
     def get_update_manifest(self):
-        current_version = self.get_current_version()
-        sysname = os.uname().sysname
-        wmac = hexlify(machine.unique_id()).decode('ascii')
-        request_template = "manifest.json?current_ver={}&sysname={}&wmac={}"
-        req = request_template.format(current_version, sysname, wmac)
+        slot=str(pycom.ota_slot())
+        req = "manifest.json?current_ver={}&slot={}".format(self.get_current_version(),slot)
         manifest_data = self.get_data(req).decode()
         manifest = ujson.loads(manifest_data)
         gc.collect()
         return manifest
 
     def update(self):
-        try:
-            manifest = self.get_update_manifest()
-        except Exception as e:
-            print('Error reading the manifest, aborting: {}'.format(e))
-            return 0
-
+        manifest = self.get_update_manifest()
         if manifest is None:
             print("Already on the latest version")
-            return 1
+            return
 
         # Download new files and verify hashes
         for f in manifest['new'] + manifest['update']:
@@ -63,9 +60,7 @@ class OTA():
                     break
                 except Exception as e:
                     print(e)
-                    msg = "Error downloading `{}` retrying..."
-                    print(msg.format(f['URL']))
-                    return 0
+                    print("Error downloading `{}` retrying...".format(f['URL']))
             else:
                 raise Exception("Failed to download `{}`".format(f['URL']))
 
@@ -91,15 +86,16 @@ class OTA():
             self.write_firmware(manifest['firmware'])
 
         # Save version number
-        # try:
-        #     self.backup_file({"dst_path": "/flash/OTA_VERSION.py"})
-        # except OSError:
-        #     pass  # There isnt a previous file to backup
-        # with open("/flash/OTA_VERSION.py", 'w') as fp:
-        #     fp.write("VERSION = '{}'".format(manifest['version']))
-        # from OTA_VERSION import VERSION
+        try:
+            self.backup_file({"dst_path": "/flash/OTA_VERSION.py"})
+        except OSError:
+            pass  # There isnt a previous file to backup
+        with open("/flash/OTA_VERSION.py", 'w') as fp:
+            fp.write("VERSION = '{}'".format(manifest['version']))
+        from OTA_VERSION import VERSION
 
-        return 2
+        # Reboot the device to run the new decode
+        machine.reset()
 
     def get_file(self, f):
         new_path = "{}.new".format(f['dst_path'])
@@ -184,19 +180,13 @@ class WiFiOTA(OTA):
         return req
 
     def get_data(self, req, dest_path=None, hash=False, firmware=False):
-        h = None
-
-        useSSL = int(self.port) == 443
-
         # Connect to server
-        print("Requesting: {} to {}:{} with SSL? {}".format(req, self.ip, self.port, useSSL))
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-        s.connect(socket.getaddrinfo(self.ip, self.port)[0][-1])
-        if (int(self.port) == 443):
-            print("Wrapping socket")
-            s = ssl.wrap_socket(s)
+        print("Requesting: {}".format(req))
+        s = socket.socket(socket.AF_INET,
+                          socket.SOCK_STREAM,
+                          socket.IPPROTO_TCP)
+        s.connect((self.ip, self.port))
 
-        print("Sending request")
         # Request File
         s.sendall(self._http_get(req, "{}:{}".format(self.ip, self.port)))
 
@@ -204,19 +194,17 @@ class WiFiOTA(OTA):
             content = bytearray()
             fp = None
             if dest_path is not None:
-                print('dest_path {}'.format(dest_path))
                 if firmware:
                     raise Exception("Cannot write firmware to a file")
                 fp = open(dest_path, 'wb')
 
             if firmware:
-                print('start')
                 pycom.ota_start()
 
             h = uhashlib.sha1()
 
             # Get data from server
-            result = s.recv(50)
+            result = s.recv(100)
 
             start_writing = False
             while (len(result) > 0):
@@ -237,7 +225,7 @@ class WiFiOTA(OTA):
                     if hash:
                         h.update(result)
 
-                result = s.recv(50)
+                result = s.recv(100)
 
             s.close()
 
@@ -247,7 +235,6 @@ class WiFiOTA(OTA):
                 pycom.ota_finish()
 
         except Exception as e:
-            gc.mem_free()
             # Since only one hash operation is allowed at Once
             # ensure we close it if there is an error
             if h is not None:

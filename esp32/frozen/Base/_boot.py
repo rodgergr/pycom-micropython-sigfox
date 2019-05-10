@@ -1,4 +1,8 @@
 # _boot.py -- always run on boot-up, even during safe boot
-import os
 from machine import UART
-os.dupterm(UART(0, 115200))
+import os
+import micropython
+uart = UART(0, 115200)
+os.dupterm(uart)
+
+micropython.alloc_emergency_exception_buf(100)

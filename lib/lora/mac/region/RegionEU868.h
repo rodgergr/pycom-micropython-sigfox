@@ -193,31 +193,31 @@
  * Band 0 definition
  * { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND0                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
+#define EU868_BAND0                                  { 1 , EU868_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 1 definition
  * { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND1                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
+#define EU868_BAND1                                  { 1 , EU868_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND2                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
+#define EU868_BAND2                                  { 1 , EU868_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND3                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
+#define EU868_BAND3                                  { 1 , EU868_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND4                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
+#define EU868_BAND4                                  { 1 , EU868_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * LoRaMac default channel 1

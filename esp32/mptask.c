@@ -233,9 +233,15 @@ soft_reset:
     if (power_fail == true)
     {
         printf("Power fail boot\n");
+        set_display_state(0);
     }
-
-
+    else
+    {
+        if (!safeboot) {
+            set_display_state(1);
+        }
+    }
+    
     if (!soft_reset) {
         if (config_get_wdt_on_boot()) {
             uint32_t timeout_ms = config_get_wdt_on_boot_timeout();
