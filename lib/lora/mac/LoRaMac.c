@@ -764,7 +764,8 @@ static void OnRadioRxDone( uint8_t *payload, uint32_t timestamp, uint16_t size, 
 
                 // DLSettings
                 LoRaMacParams.Rx1DrOffset = ( LoRaMacRxPayload[11] >> 4 ) & 0x07;
-                LoRaMacParams.Rx2Channel.Datarate = LoRaMacRxPayload[11] & 0x0F;
+                //Loriot send an invalid DR in the OTAA accpet response so do not update it 
+                //LoRaMacParams.Rx2Channel.Datarate = LoRaMacRxPayload[11] & 0x0F;
 
                 // RxDelay
                 LoRaMacParams.ReceiveDelay1 = ( LoRaMacRxPayload[12] & 0x0F );

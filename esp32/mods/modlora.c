@@ -1670,7 +1670,7 @@ static mp_obj_t lora_init_helper(lora_obj_t *self, const mp_arg_val_t *args) {
             cmd_data.info.init.tx_power = 20;
             break;
         case LORAMAC_REGION_EU868:
-            cmd_data.info.init.tx_power = 14;
+            cmd_data.info.init.tx_power = 20;
             break;
         default:
             break;

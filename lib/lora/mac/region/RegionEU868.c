@@ -21,6 +21,7 @@ Maintainer: Miguel Luis ( Semtech ), Gregory Cristian ( Semtech ) and Daniel Jae
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "board.h"
 #include "lora/mac/LoRaMac.h"
@@ -346,6 +347,11 @@ void RegionEU868InitDefaults( InitType_t type )
             Channels[0] = ( ChannelParams_t ) EU868_LC1;
             Channels[1] = ( ChannelParams_t ) EU868_LC2;
             Channels[2] = ( ChannelParams_t ) EU868_LC3;
+            Channels[3] = ( ChannelParams_t ) EU868_LC4;
+            Channels[4] = ( ChannelParams_t ) EU868_LC5;
+            Channels[5] = ( ChannelParams_t ) EU868_LC6;
+            Channels[6] = ( ChannelParams_t ) EU868_LC7;
+            Channels[7] = ( ChannelParams_t ) EU868_LC8;
 
             // Initialize the channels default mask
             ChannelsDefaultMask[0] = LC( 1 ) + LC( 2 ) + LC( 3 );

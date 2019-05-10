@@ -43,7 +43,7 @@
 /*!
  * Number of default channels
  */
-#define EU868_NUMB_DEFAULT_CHANNELS                 3
+#define EU868_NUMB_DEFAULT_CHANNELS                 8
 
 /*!
  * Number of channels to apply for the CF list
@@ -108,7 +108,7 @@
 /*!
  * Default Max EIRP
  */
-#define EU868_DEFAULT_MAX_EIRP                      16.0f
+#define EU868_DEFAULT_MAX_EIRP                      30.0f
 
 /*!
  * Default antenna gain
@@ -177,12 +177,12 @@
 /*!
  * Second reception window channel frequency definition.
  */
-#define EU868_RX_WND_2_FREQ                         869525000
+#define EU868_RX_WND_2_FREQ                         866550000
 
 /*!
  * Second reception window channel datarate definition.
  */
-#define EU868_RX_WND_2_DR                           DR_0
+#define EU868_RX_WND_2_DR                           DR_2
 
 /*!
  * Maximum number of bands
@@ -193,49 +193,81 @@
  * Band 0 definition
  * { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND0                                 { 100 , EU868_MAX_TX_POWER, 0,  0 } //  1.0 %
+#define EU868_BAND0                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 1 definition
  * { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND1                                 { 100 , EU868_MAX_TX_POWER, 0,  0 } //  1.0 %
+#define EU868_BAND1                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND2                                 { 1000, EU868_MAX_TX_POWER, 0,  0 } //  0.1 %
+#define EU868_BAND2                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND3                                 { 10  , EU868_MAX_TX_POWER, 0,  0 } // 10.0 %
+#define EU868_BAND3                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * Band 2 definition
  * Band = { DutyCycle, TxMaxPower, LastTxDoneTime, TimeOff }
  */
-#define EU868_BAND4                                 { 100 , EU868_MAX_TX_POWER, 0,  0 } //  1.0 %
+#define EU868_BAND4                                  { 1 , IN865_MAX_TX_POWER, 0,  0 } //  100.0 %
 
 /*!
  * LoRaMac default channel 1
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC1                                   { 868100000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC1                                   { 865062500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 2
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC2                                   { 868300000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC2                                   { 865402500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 3
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC3                                   { 868500000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC3                                   { 865985000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+/*!
+ * LoRaMac default channel 4
+ * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
+ */
+#define EU868_LC4                                   { 864862500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+/*!
+ * LoRaMac default channel 4
+ * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
+ */
+#define EU868_LC5                                   { 865602500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+/*!
+ * LoRaMac default channel 4
+ * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
+ */
+#define EU868_LC6                                  { 866200000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+/*!
+ * LoRaMac default channel 4
+ * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
+ */
+#define EU868_LC7                                   { 866400000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+/*!
+ * LoRaMac default channel 4
+ * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
+ */
+#define EU868_LC8                                   { 866600000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+
+
 
 /*!
  * LoRaMac channels which are allowed for the join procedure

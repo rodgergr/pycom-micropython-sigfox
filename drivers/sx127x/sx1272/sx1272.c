@@ -355,8 +355,10 @@ IRAM_ATTR void SX1272SetRxConfig( RadioModems_t modem, uint32_t bandwidth,
             SX1272Write( REG_LR_MODEMCONFIG2,
                          ( SX1272Read( REG_LR_MODEMCONFIG2 ) &
                            RFLR_MODEMCONFIG2_SF_MASK &
+                           RFLR_MODEMCONFIG2_AGCAUTO_MASK &
                            RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) |
                            ( datarate << 4 ) |
+                           RFLR_MODEMCONFIG2_AGCAUTO_OFF |
                            ( ( symbTimeout >> 8 ) & ~RFLR_MODEMCONFIG2_SYMBTIMEOUTMSB_MASK ) );
 
             SX1272Write( REG_LR_SYMBTIMEOUTLSB, ( uint8_t )( symbTimeout & 0xFF ) );
@@ -393,6 +395,14 @@ IRAM_ATTR void SX1272SetRxConfig( RadioModems_t modem, uint32_t bandwidth,
                 SX1272Write( REG_LR_DETECTIONTHRESHOLD,
                              RFLR_DETECTIONTHRESH_SF7_TO_SF12 );
             }
+
+            // increase RX sensitivity
+            SX1272Write( REG_LR_LNA, 
+                          ( SX1272Read( REG_LR_LNA ) &
+                           RFLR_LNA_BOOST_MASK &
+                           RFLR_LNA_GAIN_MASK )
+                          | RFLR_LNA_BOOST_ON
+                          | RFLR_LNA_GAIN_G1 );
         }
         break;
     }
