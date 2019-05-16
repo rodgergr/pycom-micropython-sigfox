@@ -265,7 +265,10 @@ soft_reset:
     }
 
     // initialize the serial flash file system
-    mptask_init_sflash_filesystem();
+    //if (power_fail == false)
+    //{
+        mptask_init_sflash_filesystem();
+    //}
 
 #if defined(LOPY) || defined(SIPY) || defined (LOPY4) || defined(FIPY)
     // must be done after initializing the file system
