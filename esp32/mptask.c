@@ -230,16 +230,21 @@ soft_reset:
     }
 
     bool power_fail = get_power_fail_state();
-    if (power_fail == true)
+
+    if ((power_fail == true) && (!safeboot))
     {
         printf("Power fail boot\n");
         set_display_state(0);
+#if defined(LOPY) || defined (LOPY4) || defined (FIPY)
+        modlora_init0();
+#endif
+        pyexec_frozen_module("_boot.py");
+        pyexec_frozen_module("_main.py");
+        // should not get there 
     }
     else
     {
-        if (!safeboot) {
-            set_display_state(1);
-        }
+        set_display_state(1);
     }
     
     if (!soft_reset) {
@@ -263,12 +268,9 @@ soft_reset:
         modsigfox_init0();
 #endif
     }
-
-    // initialize the serial flash file system
-    //if (power_fail == false)
-    //{
-        mptask_init_sflash_filesystem();
-    //}
+    
+    mptask_init_sflash_filesystem();
+    
 
 #if defined(LOPY) || defined(SIPY) || defined (LOPY4) || defined(FIPY)
     // must be done after initializing the file system

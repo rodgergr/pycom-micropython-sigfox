@@ -223,31 +223,31 @@
  * LoRaMac default channel 1
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC1                                   { 865062500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC1                                   { 864862500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 2
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC2                                   { 865402500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC2                                   { 865062500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 3
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC3                                   { 865985000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC3                                   { 865402500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 4
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC4                                   { 864862500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC4                                   { 865602500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 4
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-#define EU868_LC5                                   { 865602500, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
+#define EU868_LC5                                   { 865985000, 0, { ( ( DR_5 << 4 ) | DR_0 ) }, 1 }
 
 /*!
  * LoRaMac default channel 4
