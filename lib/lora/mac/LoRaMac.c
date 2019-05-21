@@ -730,7 +730,7 @@ static void OnRadioRxDone( uint8_t *payload, uint32_t timestamp, uint16_t size, 
 
     macHdr.Value = payload[pktHeaderLen++];
 
-    printf("RX : RSSI:%d dBm, SNR: %d, SF: %d, Size: %d\n",rssi,snr,sf,size);
+    //printf("RX : RSSI:%d dBm, SNR: %d, SF: %d, Size: %d\n",rssi,snr,sf,size);
 
     switch( macHdr.Bits.MType )
     {
@@ -790,11 +790,11 @@ static void OnRadioRxDone( uint8_t *payload, uint32_t timestamp, uint16_t size, 
                 IsLoRaMacNetworkJoined = true;
 
                  
-                printf("JOIN_ACCEPT Rx1 Offset:%d, Rx2 DR:%d, Rx1 delay:%d, Rx2 delay:%d\n",
-                                                                           LoRaMacParams.Rx1DrOffset,
-                                                                           LoRaMacRxPayload[11] & 0x0F,
-                                                                           LoRaMacParams.ReceiveDelay1,
-                                                                           LoRaMacParams.ReceiveDelay2);
+                //printf("JOIN_ACCEPT Rx1 Offset:%d, Rx2 DR:%d, Rx1 delay:%d, Rx2 delay:%d\n",
+                //                                                           LoRaMacParams.Rx1DrOffset,
+                //                                                           LoRaMacRxPayload[11] & 0x0F,
+                //                                                           LoRaMacParams.ReceiveDelay1,
+                //                                                           LoRaMacParams.ReceiveDelay2);
                                                                            
             }
             else
@@ -1128,7 +1128,7 @@ static void OnRadioTxTimeout( void )
 
 static void OnRadioRxError( void )
 {
-    printf("OnRadioRxError \n");
+    //printf("OnRadioRxError \n");
     if( LoRaMacDeviceClass != CLASS_C )
     {
         Radio.Sleep( );
@@ -1486,7 +1486,7 @@ static void OnRxWindow2TimerEvent( void )
         RxWindow2Config.Datarate =  LoRaMacParams.Rx2Channel.Datarate;
     }
 
-    printf("RX2 window Freq:%d, DR: %d",RxWindow2Config.Frequency,RxWindow2Config.Datarate);
+    //printf("RX2 window Freq:%d, DR: %d",RxWindow2Config.Frequency,RxWindow2Config.Datarate);
 
     if( RegionRxConfig( LoRaMacRegion, &RxWindow2Config, ( int8_t* )&McpsIndication.RxDatarate ) == true )
     {
@@ -2447,7 +2447,7 @@ LoRaMacStatus_t LoRaMacInitialization( LoRaMacPrimitives_t *primitives, LoRaMacC
     Radio.SetPublicNetwork( PublicNetwork );
     Radio.Sleep( );
 
-    printf("LoRaMacInitialization , DR is:%d",LoRaMacParamsDefaults.Rx2Channel.Datarate);
+    //printf("LoRaMacInitialization , DR is:%d",LoRaMacParamsDefaults.Rx2Channel.Datarate);
 
     return LORAMAC_STATUS_OK;
 }

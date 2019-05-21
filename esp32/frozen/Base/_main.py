@@ -34,7 +34,7 @@ def runMain():
     print('** MAIN POC ' + __version__ +  ' By ' + __author__ + ' Copyright '  + __copyright__ + ' **')
     print(str(uos.uname()))
 
-    DEFAULT_STACK_SIZE=3000
+    DEFAULT_STACK_SIZE=5000
 
     _thread.stack_size(DEFAULT_STACK_SIZE)
 
@@ -63,9 +63,9 @@ def runMain():
         if lora_stop_flag.locked():
             lora_stop_flag.release()
         
-        time.sleep_ms(WAIT_TIME_BEFORE_SLEEP) # time for the LoRA MAC layer to send that message
+        time.sleep_ms(WAIT_TIME_BEFORE_SLEEP*10) # time for the LoRA MAC layer to send that message
         rand=int(getRandom() * 20) # 0-20 value
-        machine.deepsleep((WAKEUP_DELAY+rand)*1000) # GO TO SLEEP NOW AND PRESERVE POWER        
+        #machine.deepsleep((WAKEUP_DELAY+rand)*1000) # GO TO SLEEP NOW AND PRESERVE POWER        
 
     from wdttask import wdtTask
     from wifitask import wifiTask
