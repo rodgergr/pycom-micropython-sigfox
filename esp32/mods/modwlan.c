@@ -120,7 +120,7 @@ static uint8_t token = 0;
 // Event bits
 const int CONNECTED_BIT = BIT0;
 
-static bool is_inf_up = false;
+bool is_inf_up = false;
 
 //mutex for Timeout Counter protection
 SemaphoreHandle_t timeout_mutex;

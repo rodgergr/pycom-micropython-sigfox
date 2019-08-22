@@ -150,6 +150,7 @@ APP_MODS_SRC_C = $(addprefix mods/,\
 	machrmt.c \
 	lwipsocket.c \
 	machtouch.c \
+	esp_espnow.c \
 	)
 
 APP_MODS_LORA_SRC_C = $(addprefix mods/,\
