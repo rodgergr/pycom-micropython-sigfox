@@ -243,7 +243,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(espnow_del_peer_obj, espnow_del_peer);
 extern bool is_inf_up;
 
 STATIC mp_obj_t espnow_send(mp_obj_t addr, mp_obj_t msg) {
-    if (!is_inf_up) goto espnow_wifi_err;
+//    if (!is_inf_up) goto espnow_wifi_err;
 
     mp_uint_t addr_len;
     const uint8_t *addr_buf;
