@@ -1,3 +1,11 @@
+'''
+Copyright (c) 2019, Pycom Limited.
+This software is licensed under the GNU GPL version 3 or any
+later version, with permitted additional terms. For more information
+see the Pycom Licence v1.0 document supplied with this file, or
+available at https://www.pycom.io/opensource/licensing
+'''
+
 import network
 import socket
 import machine
@@ -32,8 +40,11 @@ class OTA():
         return VERSION
 
     def get_update_manifest(self):
-        slot=str(pycom.ota_slot())
-        req = "manifest.json?current_ver={}&slot={}".format(self.get_current_version(),slot)
+        current_version = self.get_current_version()
+        sysname = os.uname().sysname
+        wmac = hexlify(machine.unique_id()).decode('ascii')
+        request_template = "manifest.json?current_ver={}&sysname={}&wmac={}&ota_slot={}"
+        req = request_template.format(current_version, sysname, wmac, hex(pycom.ota_slot()))
         manifest_data = self.get_data(req).decode()
         manifest = ujson.loads(manifest_data)
         gc.collect()

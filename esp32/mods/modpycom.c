@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -34,7 +34,10 @@
 #include "bootmgr.h"
 #include "updater.h"
 
+#include "mptask.h"
+
 #include "modmachine.h"
+#include "esp32chipinfo.h"
 
 
 #include <string.h>
@@ -124,6 +127,7 @@ static void modpycom_bootmgr(uint8_t boot_partition, uint8_t fs_type, uint8_t sa
 
 
 STATIC mp_obj_t mod_pycom_heartbeat (mp_uint_t n_args, const mp_obj_t *args) {
+#ifndef RGB_LED_DISABLE
     if (n_args) {
         mperror_enable_heartbeat (mp_obj_is_true(args[0]));
         if (!mp_obj_is_true(args[0])) {
@@ -134,12 +138,15 @@ STATIC mp_obj_t mod_pycom_heartbeat (mp_uint_t n_args, const mp_obj_t *args) {
     } else {
         return mp_obj_new_bool(mperror_is_heartbeat_enabled());
     }
+#else
+    nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "RGB Led Interface Disabled"));
+#endif
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_heartbeat_obj, 0, 1, mod_pycom_heartbeat);
 
 STATIC mp_obj_t mod_pycom_rgb_led (mp_obj_t o_color) {
-
+#ifndef RGB_LED_DISABLE
     if (mperror_is_heartbeat_enabled()) {
        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, mpexception_os_request_not_possible));
     }
@@ -147,6 +154,9 @@ STATIC mp_obj_t mod_pycom_rgb_led (mp_obj_t o_color) {
     uint32_t color = mp_obj_get_int(o_color);
     led_info.color.value = color;
     led_set_color(&led_info, true, false);
+#else
+    nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "RGB Led Interface Disabled"));
+#endif
 
     return mp_const_none;
 }
@@ -267,9 +277,9 @@ STATIC mp_obj_t mod_pycom_nvs_set (mp_obj_t _key, mp_obj_t _value) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(mod_pycom_nvs_set_obj, mod_pycom_nvs_set);
 
-STATIC mp_obj_t mod_pycom_nvs_get (mp_obj_t _key) {
+STATIC mp_obj_t mod_pycom_nvs_get (mp_uint_t n_args, const mp_obj_t *args) {
 
-    const char *key = mp_obj_str_get_str(_key);
+    const char *key = mp_obj_str_get_str(args[0]);
     esp_err_t esp_err = ESP_OK;
     mp_obj_t ret = mp_const_none;
     uint32_t value;
@@ -295,14 +305,21 @@ STATIC mp_obj_t mod_pycom_nvs_get (mp_obj_t _key) {
     }
 
     if(esp_err == ESP_ERR_NVS_NOT_FOUND) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "No matching object for the provided key"));
+        if (n_args > 1) {
+            // return user defined NoExistValue
+            return args[1];
+        }
+        else
+        {
+            nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "No matching object for the provided key"));
+        }
     } else if(esp_err != ESP_OK) {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_Exception, "Error occurred while fetching value, code: %d", esp_err));
     }
 
     return ret;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mod_pycom_nvs_get_obj, mod_pycom_nvs_get);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_nvs_get_obj, 1, 2, mod_pycom_nvs_get);
 
 STATIC mp_obj_t mod_pycom_nvs_erase (mp_obj_t _key) {
     const char *key = mp_obj_str_get_str(_key);
@@ -324,14 +341,175 @@ STATIC mp_obj_t mod_pycom_nvs_erase_all (void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_pycom_nvs_erase_all_obj, mod_pycom_nvs_erase_all);
 
 STATIC mp_obj_t mod_pycom_wifi_on_boot (mp_uint_t n_args, const mp_obj_t *args) {
-    if (n_args) {
+    if (n_args >= 1 ) {
         config_set_wifi_on_boot (mp_obj_is_true(args[0]));
+        if (n_args > 1 && mp_obj_is_true(args[1])) {
+            mptask_config_wifi(true);
+        }
     } else {
         return mp_obj_new_bool(config_get_wifi_on_boot());
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_on_boot_obj, 0, 1, mod_pycom_wifi_on_boot);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_on_boot_obj, 0, 2, mod_pycom_wifi_on_boot);
+
+STATIC mp_obj_t mod_pycom_wifi_mode (mp_uint_t n_args, const mp_obj_t *args) {
+    uint8_t mode;
+    if (n_args) {
+        mode = mp_obj_get_int(args[0]);
+        switch(mode)
+        {
+        case 0:
+            config_set_wifi_mode ((uint8_t)PYCOM_WIFI_CONF_MODE_NONE, true);
+            break;
+        case 1:
+            config_set_wifi_mode ((uint8_t)PYCOM_WIFI_CONF_MODE_STA, true);
+            break;
+        case 2:
+            config_set_wifi_mode ((uint8_t)PYCOM_WIFI_CONF_MODE_AP, true);
+            break;
+        case 3:
+            config_set_wifi_mode ((uint8_t)PYCOM_WIFI_CONF_MODE_APSTA, true);
+            break;
+        default:
+            break;
+        }
+    } else {
+        mode = config_get_wifi_mode();
+        switch(mode)
+        {
+        case PYCOM_WIFI_CONF_MODE_STA:
+            return MP_OBJ_NEW_SMALL_INT(1);
+        case PYCOM_WIFI_CONF_MODE_AP:
+            return MP_OBJ_NEW_SMALL_INT(2);
+        case PYCOM_WIFI_CONF_MODE_APSTA:
+            return MP_OBJ_NEW_SMALL_INT(3);
+        case PYCOM_WIFI_CONF_MODE_NONE:
+        default:
+            return MP_OBJ_NEW_SMALL_INT(0);
+        }
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_mode_obj, 0, 1, mod_pycom_wifi_mode);
+
+STATIC mp_obj_t mod_pycom_wifi_ssid_sta (mp_uint_t n_args, const mp_obj_t *args) {
+    if (n_args) {
+        if(args[0] == mp_const_none)
+        {
+            config_set_sta_wifi_ssid (NULL, true);
+        }
+        else if (MP_OBJ_IS_STR(args[0]))
+        {
+            config_set_sta_wifi_ssid ((uint8_t *)(mp_obj_str_get_str(args[0])), true);
+        }
+        else{/*Nothing*/}
+
+    } else {
+        uint8_t * ssid = (uint8_t *)m_malloc(33);
+        mp_obj_t ssid_obj;
+        if(config_get_wifi_sta_ssid(ssid))
+        {
+            ssid_obj = mp_obj_new_str((const char *)ssid, strlen((const char *)ssid));
+        }
+        else
+        {
+            ssid_obj = mp_const_none;
+        }
+        m_free(ssid);
+        return ssid_obj;
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_ssid_sta_obj, 0, 1, mod_pycom_wifi_ssid_sta);
+
+STATIC mp_obj_t mod_pycom_wifi_pwd_sta (mp_uint_t n_args, const mp_obj_t *args) {
+    if (n_args) {
+        if(args[0] == mp_const_none)
+        {
+            config_set_wifi_sta_pwd (NULL, true);
+        }
+        else if (MP_OBJ_IS_STR(args[0]))
+        {
+            config_set_wifi_sta_pwd ((uint8_t *)(mp_obj_str_get_str(args[0])), true);
+        }
+        else{/*Nothing*/}
+    } else {
+        uint8_t * pwd = (uint8_t *)m_malloc(65);
+        mp_obj_t pwd_obj;
+        if(config_get_wifi_sta_pwd(pwd))
+        {
+            pwd_obj = mp_obj_new_str((const char *)pwd, strlen((const char *)pwd));
+        }
+        else
+        {
+            pwd_obj = mp_const_none;
+        }
+        m_free(pwd);
+        return pwd_obj;
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_pwd_sta_obj, 0, 1, mod_pycom_wifi_pwd_sta);
+
+STATIC mp_obj_t mod_pycom_wifi_ssid_ap (mp_uint_t n_args, const mp_obj_t *args) {
+    if (n_args) {
+        if(args[0] == mp_const_none)
+        {
+            config_set_wifi_ap_ssid (NULL);
+        }
+        else if (MP_OBJ_IS_STR(args[0]))
+        {
+            config_set_wifi_ap_ssid ((uint8_t *)(mp_obj_str_get_str(args[0])));
+        }
+        else{/*Nothing*/}
+    } else {
+        uint8_t * ssid = (uint8_t *)m_malloc(33);
+        mp_obj_t ssid_obj;
+        if(config_get_wifi_ap_ssid(ssid))
+        {
+            ssid_obj = mp_obj_new_str((const char *)ssid, strlen((const char *)ssid));
+        }
+        else
+        {
+            ssid_obj = mp_const_none;
+        }
+        m_free(ssid);
+        return ssid_obj;
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_ssid_ap_obj, 0, 1, mod_pycom_wifi_ssid_ap);
+
+STATIC mp_obj_t mod_pycom_wifi_pwd_ap (mp_uint_t n_args, const mp_obj_t *args) {
+    if (n_args) {
+        if(args[0] == mp_const_none)
+        {
+            config_set_wifi_ap_pwd (NULL);
+        }
+        else if (MP_OBJ_IS_STR(args[0]))
+        {
+            config_set_wifi_ap_pwd ((uint8_t *)(mp_obj_str_get_str(args[0])));
+        }
+        else{/*Nothing*/}
+    } else {
+        uint8_t * pwd = (uint8_t *)m_malloc(65);
+        mp_obj_t pwd_obj;
+        if(config_get_wifi_ap_pwd(pwd))
+        {
+            pwd_obj = mp_obj_new_str((const char *)pwd, strlen((const char *)pwd));
+        }
+        else
+        {
+            pwd_obj = mp_const_none;
+        }
+        m_free(pwd);
+        return pwd_obj;
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_pwd_ap_obj, 0, 1, mod_pycom_wifi_pwd_ap);
+
 
 STATIC mp_obj_t mod_pycom_wdt_on_boot (mp_uint_t n_args, const mp_obj_t *args) {
     if (n_args) {
@@ -357,32 +535,6 @@ STATIC mp_obj_t mod_pycom_wdt_on_boot_timeout (mp_uint_t n_args, const mp_obj_t 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wdt_on_boot_timeout_obj, 0, 1, mod_pycom_wdt_on_boot_timeout);
 
-STATIC mp_obj_t mod_pycom_wifi_ssid (mp_uint_t n_args, const mp_obj_t *args) {
-    if (n_args) {
-        const char *wifi_ssid = mp_obj_str_get_str(args[0]);
-        config_set_wifi_ssid ((const uint8_t*)wifi_ssid);
-    } else {
-        uint8_t wifi_ssid[32];
-        config_get_wifi_ssid(wifi_ssid);
-        return mp_obj_new_str((const char*)wifi_ssid,strlen((const char*)wifi_ssid));
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_ssid_obj, 0, 1, mod_pycom_wifi_ssid);
-
-STATIC mp_obj_t mod_pycom_wifi_pwd (mp_uint_t n_args, const mp_obj_t *args) {
-    if (n_args) {
-        const char *wifi_pwd = mp_obj_str_get_str(args[0]);
-        config_set_wifi_pwd ((const uint8_t*)wifi_pwd);
-    } else {
-        uint8_t wifi_pwd[64];
-        config_get_wifi_pwd(wifi_pwd);
-        return mp_obj_new_str((const char*)wifi_pwd,strlen((const char*)wifi_pwd));
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_wifi_pwd_obj, 0, 1, mod_pycom_wifi_pwd);
-
 STATIC mp_obj_t mod_pycom_heartbeat_on_boot (mp_uint_t n_args, const mp_obj_t *args) {
     if (n_args) {
         config_set_heartbeat_on_boot (mp_obj_is_true(args[0]));
@@ -402,6 +554,86 @@ STATIC mp_obj_t mod_pycom_lte_modem_on_boot (mp_uint_t n_args, const mp_obj_t *a
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_lte_modem_on_boot_obj, 0, 1, mod_pycom_lte_modem_on_boot);
+
+STATIC mp_obj_t mod_pycom_pybytes_lte_config (size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    enum { ARG_carrier, ARG_apn, ARG_cid, ARG_band, ARG_type, ARG_reset };
+    STATIC const mp_arg_t allowed_args[] = {
+        { MP_QSTR_carrier,   		MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_apn,          	MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_cid,         		MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_band,            	MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_type,            	MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_reset,            MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+
+    };
+
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    pycom_pybytes_lte_config_t pycom_pybytes_lte_config = config_get_pybytes_lte_config();
+
+    if (n_args == 0) {
+        mp_obj_tuple_t *t = MP_OBJ_TO_PTR(mp_obj_new_tuple(6, NULL));
+
+        if(pycom_pybytes_lte_config.carrier[0] == 0xFF && pycom_pybytes_lte_config.carrier[1] == 0xFF && pycom_pybytes_lte_config.carrier[2] == 0xFF)
+        {
+            t->items[ARG_carrier] = mp_const_none;
+        }
+        else
+        {
+            t->items[ARG_carrier] = mp_obj_new_str((const char *)pycom_pybytes_lte_config.carrier, strlen((const char *)pycom_pybytes_lte_config.carrier));
+        }
+
+        if(pycom_pybytes_lte_config.apn[0] == 0xFF && pycom_pybytes_lte_config.apn[1] == 0xFF && pycom_pybytes_lte_config.apn[2] == 0xFF)
+        {
+            t->items[ARG_apn] = mp_const_none;
+        }
+        else
+        {
+            t->items[ARG_apn] = mp_obj_new_str((const char *)pycom_pybytes_lte_config.apn, strlen((const char *)pycom_pybytes_lte_config.apn));
+        }
+        if(pycom_pybytes_lte_config.cid == 0xFF)
+        {
+            t->items[ARG_cid] = mp_obj_new_int(1);
+        }
+        else
+        {
+            t->items[ARG_cid] = mp_obj_new_int(pycom_pybytes_lte_config.cid);
+        }
+        if(pycom_pybytes_lte_config.band == 0xFF)
+        {
+            t->items[ARG_band] = mp_const_none;
+        }
+        else
+        {
+            t->items[ARG_band] = mp_obj_new_int(pycom_pybytes_lte_config.band);
+        }
+        if(pycom_pybytes_lte_config.type[0] == 0xFF)
+        {
+            t->items[ARG_type] = mp_const_none;
+        }
+        else
+        {
+            t->items[ARG_type] = mp_obj_new_str((const char *)pycom_pybytes_lte_config.type, strlen((const char *)pycom_pybytes_lte_config.type));
+        }
+        if(pycom_pybytes_lte_config.reset == 0xff)
+        {
+            t->items[ARG_reset] = mp_const_false;
+        }
+        else
+        {
+            t->items[ARG_reset] = mp_obj_new_bool(pycom_pybytes_lte_config.reset);
+        }
+        return MP_OBJ_FROM_PTR(t);
+
+    } else {
+    	nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, "Error this functionality is not yet supported!"));
+    }
+
+    return mp_const_none;
+}
+
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mod_pycom_pybytes_lte_config_obj, 0, mod_pycom_pybytes_lte_config);
 
 STATIC mp_obj_t mod_pycom_bootmgr (size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     enum { ARG_boot_partition, ARG_fs_type, ARG_safeboot, ARG_status };
@@ -464,7 +696,30 @@ STATIC mp_obj_t mod_pycom_bootmgr (size_t n_args, const mp_obj_t *pos_args, mp_m
 
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(mod_pycom_bootmgr_obj, 0, mod_pycom_bootmgr);
 
+STATIC mp_obj_t mod_pycom_get_free_heap (void) {
+
+    size_t heap_psram_free = 0;
+    mp_obj_t items[2];
+
+    if (esp32_get_chip_rev() > 0) {
+        heap_psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    items[0] = mp_obj_new_int(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if(heap_psram_free)
+    {
+        items[1] = mp_obj_new_int(heap_psram_free);
+    }
+    else
+    {
+        items[1] = mp_obj_new_str("NO_EXT_RAM", strlen("NO_EXT_RAM"));
+    }
+
+    return mp_obj_new_tuple(2, items);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_pycom_get_free_heap_obj, mod_pycom_get_free_heap);
+
 #if (VARIANT == PYBYTES)
+
 STATIC mp_obj_t mod_pycom_pybytes_device_token (void) {
         uint8_t pybytes_device_token[39];
         config_get_pybytes_device_token(pybytes_device_token);
@@ -510,7 +765,19 @@ STATIC mp_obj_t mod_pycom_pybytes_force_update (mp_uint_t n_args, const mp_obj_t
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_pybytes_force_update_obj, 0, 1, mod_pycom_pybytes_force_update);
-#endif
+
+STATIC mp_obj_t mod_pycom_smartConfig (mp_uint_t n_args, const mp_obj_t *args) {
+    if (n_args) {
+        config_set_wifi_smart_config ((uint8_t)(mp_obj_is_true(args[0])), true);
+    } else {
+        return mp_obj_new_bool(config_get_wifi_smart_config());
+    }
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_pycom_smartConfig_obj, 0, 1, mod_pycom_smartConfig);
+
+#endif //(VARIANT == PYBYTES)
+
 STATIC const mp_map_elem_t pycom_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__),                        MP_OBJ_NEW_QSTR(MP_QSTR_pycom) },
     { MP_OBJ_NEW_QSTR(MP_QSTR_heartbeat),                       (mp_obj_t)&mod_pycom_heartbeat_obj },
@@ -528,10 +795,14 @@ STATIC const mp_map_elem_t pycom_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_on_boot),                    (mp_obj_t)&mod_pycom_wifi_on_boot_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wdt_on_boot),                     (mp_obj_t)&mod_pycom_wdt_on_boot_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_wdt_on_boot_timeout),             (mp_obj_t)&mod_pycom_wdt_on_boot_timeout_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_ssid),                       (mp_obj_t)&mod_pycom_wifi_ssid_obj },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_pwd),                        (mp_obj_t)&mod_pycom_wifi_pwd_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_heartbeat_on_boot),               (mp_obj_t)&mod_pycom_heartbeat_on_boot_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_lte_modem_en_on_boot),            (mp_obj_t)&mod_pycom_lte_modem_on_boot_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_get_free_heap),                   (mp_obj_t)&mod_pycom_get_free_heap_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_ssid_sta),                   (mp_obj_t)&mod_pycom_wifi_ssid_sta_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_ssid_ap),                    (mp_obj_t)&mod_pycom_wifi_ssid_ap_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_pwd_sta),                    (mp_obj_t)&mod_pycom_wifi_pwd_sta_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_pwd_ap),                     (mp_obj_t)&mod_pycom_wifi_pwd_ap_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_wifi_mode_on_boot),               (mp_obj_t)&mod_pycom_wifi_mode_obj },
 #if (VARIANT == PYBYTES)
     { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_device_token),            (mp_obj_t)&mod_pycom_pybytes_device_token_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_mqttServiceAddress),      (mp_obj_t)&mod_pycom_pybytes_mqttServiceAddress_obj },
@@ -539,7 +810,9 @@ STATIC const mp_map_elem_t pycom_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_network_preferences),     (mp_obj_t)&mod_pycom_pybytes_network_preferences_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_extra_preferences),       (mp_obj_t)&mod_pycom_pybytes_extra_preferences_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_force_update),            (mp_obj_t)&mod_pycom_pybytes_force_update_obj },
-#endif
+    { MP_OBJ_NEW_QSTR(MP_QSTR_smart_config_on_boot),            (mp_obj_t)&mod_pycom_smartConfig_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_pybytes_lte_config),    			(mp_obj_t)&mod_pycom_pybytes_lte_config_obj },
+#endif //(VARIANT == PYBYTES)
     { MP_OBJ_NEW_QSTR(MP_QSTR_bootmgr),                         (mp_obj_t)&mod_pycom_bootmgr_obj },
 
     // class constants

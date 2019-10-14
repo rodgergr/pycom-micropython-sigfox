@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -51,7 +51,6 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "nvs_flash.h"
-#include "esp_event.h"
 #include "esp_intr.h"
 #include "driver/rtc_io.h"
 
@@ -138,11 +137,13 @@ void pin_init0(void) {
             {
                 continue;
             }
+#ifndef RGB_LED_DISABLE
             /* exclude RGB led from initialization as it is already initialized by mperror */
             if (self == &PIN_MODULE_P2)
             {
                 continue;
             }
+#endif
             pin_config(self, -1, -1, GPIO_MODE_INPUT, MACHPIN_PULL_DOWN, 0);
         }
     }
@@ -332,7 +333,10 @@ STATIC IRAM_ATTR void machpin_intr_process (void* arg) {
 #ifdef MICROPY_LPWAN_DIO_PIN
     // fast path for the LPWAN DIO interrupt
     if (gpio_intr_status & (1 << micropy_lpwan_dio_pin_num)) {
-        ((void(*)(void))((pin_obj_t *)micropy_lpwan_dio_pin)->handler)();
+        if(((pin_obj_t *)micropy_lpwan_dio_pin)->handler != NULL)
+        {
+            ((void(*)(void))((pin_obj_t *)micropy_lpwan_dio_pin)->handler)();
+        }
 
         // clear this bit from the interrupt status
         gpio_intr_status &= ~(1 << micropy_lpwan_dio_pin_num);

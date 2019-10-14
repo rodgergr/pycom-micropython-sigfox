@@ -10,14 +10,16 @@
 #include "extmod/vfs.h"
 #include "vfs_littlefs.h"
 
-extern const mp_obj_type_t littlefs_type_fileio;
-extern const mp_obj_type_t littlefs_type_textio;
+extern const mp_obj_type_t mp_type_vfs_lfs_fileio;
+extern const mp_obj_type_t mp_type_vfs_lfs_textio;
 
 
 typedef struct _pyb_file_obj_t {
     mp_obj_base_t base;
     lfs_file_t fp;
     vfs_lfs_struct_t* littlefs;
+    struct lfs_file_config cfg;  // Attributes of the file, e.g.: timestamp
+    bool timestamp_update;  // For requesting timestamp update when closing the file
 } pyb_file_obj_t;
 
 STATIC void file_obj_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
@@ -46,6 +48,10 @@ STATIC mp_uint_t file_obj_write(mp_obj_t self_in, const void *buf, mp_uint_t siz
 
     xSemaphoreTake(self->littlefs->mutex, portMAX_DELAY);
         lfs_ssize_t sz_out = lfs_file_write(&self->littlefs->lfs, &self->fp, buf, size);
+        // Request timestamp update if file has been written successfully
+        if(sz_out > 0) {
+            self->timestamp_update = true;
+        }
     xSemaphoreGive(self->littlefs->mutex);
 
     if (sz_out < 0) {
@@ -71,6 +77,7 @@ STATIC mp_uint_t file_obj_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg,
     pyb_file_obj_t *self = MP_OBJ_TO_PTR(o_in);
 
     if (request == MP_STREAM_SEEK) {
+
         struct mp_stream_seek_t *s = (struct mp_stream_seek_t*)(uintptr_t)arg;
 
         xSemaphoreTake(self->littlefs->mutex, portMAX_DELAY);
@@ -84,7 +91,7 @@ STATIC mp_uint_t file_obj_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg,
 
         xSemaphoreTake(self->littlefs->mutex, portMAX_DELAY);
             int res = lfs_file_sync(&self->littlefs->lfs, &self->fp);
-        xSemaphoreGive(self->littlefs->mutex);;
+        xSemaphoreGive(self->littlefs->mutex);
 
         if (res < 0) {
             *errcode = littleFsErrorToErrno(res);
@@ -93,13 +100,17 @@ STATIC mp_uint_t file_obj_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t arg,
         return 0;
 
     } else if (request == MP_STREAM_CLOSE) {
+
         xSemaphoreTake(self->littlefs->mutex, portMAX_DELAY);
-            int res = lfs_file_close(&self->littlefs->lfs, &self->fp);
-        xSemaphoreGive(self->littlefs->mutex);;
+            int res = littlefs_close_common_helper(&self->littlefs->lfs, &self->fp, &self->cfg, &self->timestamp_update);
+        xSemaphoreGive(self->littlefs->mutex);
         if (res < 0) {
             *errcode = littleFsErrorToErrno(res);
             return MP_STREAM_ERROR;
         }
+        // Free up the object so GC does not need to do that
+        m_del_obj(pyb_file_obj_t, self);
+
         return 0;
     } else {
         *errcode = MP_EINVAL;
@@ -142,25 +153,26 @@ STATIC mp_obj_t file_open(fs_user_mount_t *vfs, const mp_obj_type_t *type, mp_ar
                 break;
             #if MICROPY_PY_IO_FILEIO
             case 'b':
-                type = &littlefs_type_fileio;
+                type = &mp_type_vfs_lfs_fileio;
                 break;
             #endif
             case 't':
-                type = &littlefs_type_textio;
+                type = &mp_type_vfs_lfs_textio;
                 break;
         }
     }
 
     pyb_file_obj_t *o = m_new_obj_with_finaliser(pyb_file_obj_t);
     o->base.type = type;
+    o->timestamp_update = false;
 
     xSemaphoreTake(vfs->fs.littlefs.mutex, portMAX_DELAY);
         const char *fname = concat_with_cwd(&vfs->fs.littlefs, mp_obj_str_get_str(args[0].u_obj));
-        int res = lfs_file_open(&vfs->fs.littlefs.lfs, &o->fp, fname, mode);
+        int res = littlefs_open_common_helper(&vfs->fs.littlefs.lfs, fname, &o->fp, mode, &o->cfg, &o->timestamp_update);
     xSemaphoreGive(vfs->fs.littlefs.mutex);
 
     m_free((void*)fname);
-    if (res < 0) {
+    if (res < LFS_ERR_OK) {
         m_del_obj(pyb_file_obj_t, o);
         mp_raise_OSError(littleFsErrorToErrno(res));
     }
@@ -202,7 +214,7 @@ STATIC const mp_stream_p_t fileio_stream_p = {
     .ioctl = file_obj_ioctl,
 };
 
-const mp_obj_type_t littlefs_type_fileio = {
+const mp_obj_type_t mp_type_vfs_lfs_fileio = {
     { &mp_type_type },
     .name = MP_QSTR_FileIO,
     .print = file_obj_print,
@@ -221,7 +233,7 @@ STATIC const mp_stream_p_t textio_stream_p = {
     .is_text = true,
 };
 
-const mp_obj_type_t littlefs_type_textio = {
+const mp_obj_type_t mp_type_vfs_lfs_textio = {
     { &mp_type_type },
     .name = MP_QSTR_TextIOWrapper,
     .print = file_obj_print,
@@ -240,7 +252,7 @@ STATIC mp_obj_t littlefs_builtin_open_self(mp_obj_t self_in, mp_obj_t path, mp_o
     arg_vals[0].u_obj = path;
     arg_vals[1].u_obj = mode;
     arg_vals[2].u_obj = mp_const_none;
-    return file_open(self, &littlefs_type_textio, arg_vals);
+    return file_open(self, &mp_type_vfs_lfs_textio, arg_vals);
 }
 MP_DEFINE_CONST_FUN_OBJ_3(littlefs_vfs_open_obj, littlefs_builtin_open_self);
 

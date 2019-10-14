@@ -176,6 +176,13 @@ void SX1272SetModem( RadioModems_t modem );
 void SX1272SetChannel( uint32_t freq );
 
 /*!
+ * Return the channel configuration
+ *
+ * \param Channel RF frequency .
+ */
+uint32_t SX1272GetChannel( void );
+
+/*!
  * \brief Checks if the channel is free for the given time
  *
  * \param [IN] modem      Radio modem to be used [0: FSK, 1: LoRa]
@@ -402,5 +409,9 @@ void SX1272SetOpMode( uint8_t opMode );
  * \param [IN] enable if true, it enables a public network
  */
 void SX1272SetPublicNetwork( bool enable );
+/*!
+ * \brief Resets the SX1272
+ */
+void SX1272Reset( void );
 
 #endif // __SX1272_H__

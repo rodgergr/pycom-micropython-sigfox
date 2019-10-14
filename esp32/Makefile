@@ -1,5 +1,5 @@
 #
-# Copyright © 2016, Pycom Limited.
+# Copyright © 2019, Pycom Limited.
 #
 # This software is licensed under the GNU GPL version 3 or any
 # later version, with permitted additional terms. For more information
@@ -13,6 +13,8 @@ BOARD ?= WIPY
 ifeq ($(wildcard boards/$(BOARD)/.),)
     $(error Invalid BOARD specified)
 endif
+
+IDF_VERSION=3.2
 
 TARGET ?= boot_app
 
@@ -32,14 +34,15 @@ endif
 
 BUILD = $(BUILD_DIR)/$(BOARD)/$(BTYPE)
 
-RELEASE_DIR ?= build/
+RELEASE_DIR ?= $(BUILD_DIR)
 
 COPY_IDF_LIB ?= 0
 
 LTE_LOG_BUFF ?= 0
+RGB_LED ?= enable
 
 # by default openthread over LoRa is enabled
-OPENTHREAD ?= on
+OPENTHREAD = off
 
 # by default Secure Boot and Flash Encryption are disabled
 SECURE ?= off
@@ -67,9 +70,6 @@ ifndef PROJECT_PATH
 PROJECT_PATH := $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
 endif
 
-#check Frozen files changes
-$(shell bash tools/mpy-build-check.sh $(BOARD) $(BTYPE) $(VARIANT))
-
 FROZEN_MPY_DIR = frozen
 
 include ../py/mkenv.mk
@@ -94,7 +94,7 @@ CFLAGS_SIGFOX = $(CFLAGS_XTENSA) -O2 -nostdlib -std=gnu99 -g3 -ggdb -fstrict-vol
 LDFLAGS = -nostdlib -Wl,-Map=$(@:.elf=.map) -Wl,--no-check-sections -u call_user_start_cpu0
 LDFLAGS += -Wl,-static -Wl,--undefined=uxTopUsedPriority -Wl,--gc-sections
 
-LIBS = -L$(ESP_IDF_COMP_PATH)/esp32/lib -L$(ESP_IDF_COMP_PATH)/esp32/ld -L$(ESP_IDF_COMP_PATH)/bt/lib \
+LIBS = -L$(ESP_IDF_COMP_PATH)/esp32/lib -L$(ESP_IDF_COMP_PATH)/esp32/ld -L$(ESP_IDF_COMP_PATH)/esp32/ld/wifi_iram_noopt -L$(ESP_IDF_COMP_PATH)/bt/lib \
        -L$(ESP_IDF_COMP_PATH)/esp32 -L$(ESP_IDF_COMP_PATH)/newlib/lib -Lbootloader \
        -Llib -lnvs_flash -ltcpip_adapter -L$(BUILD) -lhal -lcore -lwps -lcoexist -lstdc++ \
        -lnet80211 -lphy -lpp -lrtc -llog -lsmartconfig -lwpa -lwpa2 -lbtdm_app -lcxx -u __cxa_guard_dummy \
@@ -103,7 +103,7 @@ LIBS = -L$(ESP_IDF_COMP_PATH)/esp32/lib -L$(ESP_IDF_COMP_PATH)/esp32/ld -L$(ESP_
        $(ESP_IDF_COMP_PATH)/newlib/lib/libc-psram-workaround.a \
        -lfreertos -ljson -ljsmn -llwip -lnewlib -lvfs -lopenssl -lmbedtls -lwpa_supplicant \
        -lxtensa-debug-module -lbt -lsdmmc -lsoc -lheap -lbootloader_support -lmicro-ecc \
-			 -u ld_include_panic_highint_hdl -lsmartconfig_ack -lmesh -lespnow
+       -u ld_include_panic_highint_hdl -lsmartconfig_ack -lmesh -lesp_ringbuf -lcoap -lespnow
 ifeq ($(BOARD), $(filter $(BOARD), FIPY))
     LIBS += sigfox/modsigfox_fipy.a
 endif
@@ -123,10 +123,14 @@ endif
 
 # Enable or Disable LTE_LOG_BUFF
 ifeq ($(BOARD), $(filter $(BOARD), GPY FIPY))
-ifeq ($(LTE_DEBUG_BUFF),1)
+ifeq ($(LTE_LOG_BUFF),1)
 	CFLAGS += -DLTE_DEBUG_BUFF
 endif #ifeq ($(LTE_LOG_BUFF),1)
 endif #ifeq ($(BOARD), $(filter $(BOARD), GPY FIPY))
+# Enable or Disable RGB led
+ifeq ($(RGB_LED),disable)
+	CFLAGS += -DRGB_LED_DISABLE
+endif #ifeq ($(LTE_LOG_BUFF),1)
 
 B_LIBS = -Lbootloader/lib -Lbootloader -L$(BUILD)/bootloader -L$(ESP_IDF_COMP_PATH)/esp32/ld \
          -L$(ESP_IDF_COMP_PATH)/esp32/lib -llog -lcore -lbootloader_support \

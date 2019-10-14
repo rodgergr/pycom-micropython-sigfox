@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -76,8 +76,9 @@ STATIC thread_t thread_entry0;
 STATIC thread_t *thread; // root pointer, handled by mp_thread_gc_others
 
 STATIC bool during_soft_reset = false;
+STATIC uint8_t mp_chip_revision;
 
-void mp_thread_preinit(void *stack, uint32_t stack_len) {
+void mp_thread_preinit(void *stack, uint32_t stack_len, uint8_t chip_revision) {
     mp_thread_set_state(&mp_state_ctx.thread);
     // create first entry in linked list of all threads
     thread = &thread_entry0;
@@ -87,6 +88,7 @@ void mp_thread_preinit(void *stack, uint32_t stack_len) {
     thread->stack = stack;
     thread->stack_len = stack_len;
     thread->next = NULL;
+    mp_chip_revision = chip_revision;
 }
 
 void mp_thread_init(void) {
@@ -138,13 +140,16 @@ STATIC void freertos_entry(void *arg) {
         ext_thread_entry(arg);
     }
 
-    /* Free up the resources of this task from the task running the interrupt handlers
+    /* Free up the resources of this task from the task TASK_Interrupts
      * as it can happen that calling here a vTaskDelete(NULL) will not have effect as the Idle Task which frees up
      * the resources of the deleted task does not have the chance to run as higher priority tasks keep the
      * processor busy and as a result we can run out of memory.
+     *
+     * From vTaskDelete() source: "Deleting a currently running task. This cannot complete within the task itself,
+     * as a context switch to another task is required." -> that's why delete will happen from TASK_Interrupts
      * */
     mp_irq_queue_interrupt_immediate_thread_delete(xTaskGetCurrentTaskHandle());
-    // Execution will only reach this point when the Interrupt handler task is about to be deleted
+    // Execution will only reach this point when TASK_Interrupts task is being deleted at the moment
     vTaskDelete(NULL);
     for (;;);
 }
@@ -164,7 +169,7 @@ void mp_thread_create_ex(void *(*entry)(void*), void *arg, size_t *stack_size, i
     thread_t *th;
 
     // allocate TCB, stack and linked-list node (must be outside thread_mutex lock)
-    if (esp_get_revision() > 0) {
+    if (mp_chip_revision > 0) {
         // for revision 1 devices we allocate from the internal memory of the malloc heap
         tcb = heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if (!tcb) {
@@ -255,7 +260,7 @@ void vPortCleanUpTCB (void *tcb) {
                 thread = th->next;
             }
             // explicitly release all its memory
-            if (esp_get_revision() > 0) {
+            if (mp_chip_revision > 0) {
                 free(th->tcb);
                 free(th->stack);
                 free(th);

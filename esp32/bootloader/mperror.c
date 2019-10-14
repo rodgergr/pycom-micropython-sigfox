@@ -1,17 +1,18 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
  * see the Pycom Licence v1.0 document supplied with this file, or
  * available at https://www.pycom.io/opensource/licensing
  */
-
+#ifndef RGB_LED_DISABLE
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "xtensa/xtruntime.h"
 #include "mpconfigboard.h"
 #include "mperror.h"
 
@@ -20,7 +21,6 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "nvs_flash.h"
-#include "esp_event.h"
 
 #include "gpio.h"
 
@@ -146,3 +146,11 @@ void IRAM_ATTR mperror_set_rgb_color (uint32_t rgbcolor) {
     XTOS_RESTORE_INTLEVEL(ilevel);
     ets_delay_us(RESET_TIME_US);
 }
+
+#else
+
+__attribute__((noreturn)) void mperror_fatal_error (void) {
+    for ( ; ; );
+}
+
+#endif //RGB_LED_DISABLE

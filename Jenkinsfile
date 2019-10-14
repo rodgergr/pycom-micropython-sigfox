@@ -1,6 +1,6 @@
 def buildVersion
 def boards_to_build = ["WiPy", "LoPy", "SiPy", "GPy", "FiPy", "LoPy4"]
-def variants_to_build = [ "BASE", "PYBYTES" ]
+def variants_to_build = [ "PYBYTES" ]
 def boards_to_test = ["1b6fa1", "00ec51"]
 def open_thread
 
@@ -9,13 +9,13 @@ node {
     stage('Checkout') {
         checkout scm
         sh 'rm -rf esp-idf'
-        sh 'git clone --depth=1 --recursive -b idf_v3.1 https://github.com/pycom/pycom-esp-idf.git esp-idf'
+        sh 'git clone --depth=1 --recursive -b idf_v3.2 https://github.com/pycom/pycom-esp-idf.git esp-idf'
     }
     
     stage('git-tag') {
         PYCOM_VERSION=get_version()
         GIT_TAG = sh (script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        sh 'git tag -fa v1.9.4-' + GIT_TAG + ' -m \\"v1.9.4-' + GIT_TAG + '\\"'
+        sh 'git tag -fa v1.11-' + GIT_TAG + ' -m \\"v1.11-' + GIT_TAG + '\\"'
     }
 
 
@@ -31,12 +31,10 @@ node {
                 board_variant = board + "_" + variant
                 open_thread = 'off'
                 // Enable openthread in case of FIPY/LoPy4/LoPy BASE builds
-                if (variant == 'BASE')
+                if (board == 'FiPy' || board == 'LoPy4' || board == 'LoPy')
                 {
-                    if (board == 'FiPy' || board == 'LoPy4' || board == 'LoPy')
-                    {
-                        open_thread = 'on'
-                    }
+                    // openthread is currently disabled
+                    open_thread = 'off'
                 }
                 parallelSteps[board_variant] = boardBuild(board, variant, open_thread)
             }

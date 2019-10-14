@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -50,7 +50,6 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "nvs_flash.h"
-#include "esp_event.h"
 #include "esp_sleep.h"
 #include "soc/timer_group_struct.h"
 #include "esp_flash_encrypt.h"
@@ -185,8 +184,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_idle_obj, machine_idle);
 STATIC mp_obj_t machine_sleep (uint n_args, const mp_obj_t *arg) {
 
     bool reconnect = false;
-    bt_deinit(NULL);
-    wlan_deinit(NULL);
+
 #if defined(FIPY) || defined(GPY)
     if (lteppp_modem_state() < E_LTE_MODEM_DISCONNECTED) {
         lteppp_deinit();
@@ -224,6 +222,9 @@ STATIC mp_obj_t machine_sleep (uint n_args, const mp_obj_t *arg) {
         }
     }
 
+    modbt_deinit(reconnect);
+    wlan_deinit(NULL);
+
     if(ESP_OK != esp_light_sleep_start())
     {
         nlr_raise(mp_obj_new_exception_msg_varg(&mp_type_ValueError, "Wifi or BT not stopped before sleep"));
@@ -239,8 +240,10 @@ STATIC mp_obj_t machine_sleep (uint n_args, const mp_obj_t *arg) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_sleep_obj,0, 2, machine_sleep);
 
 STATIC mp_obj_t machine_deepsleep (uint n_args, const mp_obj_t *arg) {
+#ifndef RGB_LED_DISABLE
     mperror_enable_heartbeat(false);
-    bt_deinit(NULL);
+#endif
+    modbt_deinit(false);
     wlan_deinit(NULL);
 #if defined(FIPY) || defined(GPY)
     if (lteppp_modem_state() < E_LTE_MODEM_DISCONNECTED) {

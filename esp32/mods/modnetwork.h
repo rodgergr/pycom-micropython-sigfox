@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -83,6 +83,8 @@ typedef struct _mod_network_nic_type_t {
 
     // Interface status
     bool (*inf_up)(void);
+    // Bring Inf_up
+    void (*set_default_inf)(void);
 } mod_network_nic_type_t;
 
 typedef struct _mod_network_socket_base_t {

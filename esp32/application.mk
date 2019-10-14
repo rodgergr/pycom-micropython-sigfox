@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, Pycom Limited.
+# Copyright (c) 2019, Pycom Limited.
 #
 # This software is licensed under the GNU GPL version 3 or any
 # later version, with permitted additional terms. For more information
@@ -24,14 +24,16 @@ APP_INC += -I$(BUILD)
 APP_INC += -I$(BUILD)/genhdr
 APP_INC += -I$(ESP_IDF_COMP_PATH)/bootloader_support/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/bootloader_support/include_priv
+APP_INC += -I$(ESP_IDF_COMP_PATH)/bootloader_support/include_bootloader
 APP_INC += -I$(ESP_IDF_COMP_PATH)/mbedtls/mbedtls/include
-APP_INC += -I$(ESP_IDF_COMP_PATH)/mbedtls/mbedtls/include/mbedtls
 APP_INC += -I$(ESP_IDF_COMP_PATH)/mbedtls/port/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/driver/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/driver/include/driver
 APP_INC += -I$(ESP_IDF_COMP_PATH)/heap/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/esp32
 APP_INC += -I$(ESP_IDF_COMP_PATH)/esp32/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/esp_ringbuf/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/esp_event/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/esp_adc_cal/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/soc/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/soc/esp32/include
@@ -41,6 +43,10 @@ APP_INC += -I$(ESP_IDF_COMP_PATH)/json/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/expat/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/include/lwip
 APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/include/lwip/port
+APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/include/apps
+APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/port/esp32/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/lwip/src/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/lwip/include/lwip/posix
 APP_INC += -I$(ESP_IDF_COMP_PATH)/newlib/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/newlib/platform_include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/nvs_flash/include
@@ -67,6 +73,10 @@ APP_INC += -I$(ESP_IDF_COMP_PATH)/bt/bluedroid/hci/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/bt/bluedroid/gki/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/bt/bluedroid/api/include
 APP_INC += -I$(ESP_IDF_COMP_PATH)/bt/bluedroid/btc/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/coap/libcoap/include/coap
+APP_INC += -I$(ESP_IDF_COMP_PATH)/coap/libcoap/examples
+APP_INC += -I$(ESP_IDF_COMP_PATH)/coap/port/include
+APP_INC += -I$(ESP_IDF_COMP_PATH)/coap/port/include/coap
 APP_INC += -I../lib/mp-readline
 APP_INC += -I../lib/netutils
 APP_INC += -I../lib/oofatfs
@@ -113,7 +123,7 @@ APP_LIB_SRC_C = $(addprefix lib/,\
 	utils/interrupt_char.c \
 	utils/sys_stdio_mphal.c \
 	oofatfs/ff.c \
-	oofatfs/option/ccsbcs.c \
+	oofatfs/ffunicode.c \
 	timeutils/timeutils.c \
 	)
 
@@ -151,6 +161,7 @@ APP_MODS_SRC_C = $(addprefix mods/,\
 	lwipsocket.c \
 	machtouch.c \
 	esp_espnow.c \
+	modcoap.c \
 	)
 
 APP_MODS_LORA_SRC_C = $(addprefix mods/,\
@@ -173,6 +184,7 @@ APP_UTIL_SRC_C = $(addprefix util/,\
 	mpirq.c \
 	mpsleep.c \
 	timeutils.c \
+	esp32chipinfo.c \
 	)
 
 APP_FATFS_SRC_C = $(addprefix fatfs/src/,\
@@ -218,6 +230,8 @@ APP_LIB_LORA_SRC_C = $(addprefix lib/lora/,\
 	mac/region/RegionCommon.c \
 	mac/region/RegionEU868.c \
 	mac/region/RegionUS915.c \
+	mac/region/RegionCN470.c \
+	mac/region/RegionIN865.c \
 	system/delay.c \
 	system/gpio.c \
 	system/timer.c \
@@ -293,7 +307,6 @@ BOOT_SRC_C = $(addprefix bootloader/,\
 	bootmgr.c \
 	mperror.c \
 	gpio.c \
-	flash_qio_mode.c \
 	)
 
 SFX_OBJ =
@@ -355,12 +368,12 @@ SRC_QSTR_AUTO_DEPS +=
 BOOT_LDFLAGS = $(LDFLAGS) -T esp32.bootloader.ld -T esp32.rom.ld -T esp32.peripherals.ld -T esp32.bootloader.rom.ld -T esp32.rom.spiram_incompatible_fns.ld
 
 # add the application linker script(s)
-APP_LDFLAGS += $(LDFLAGS) -T esp32_out.ld -T esp32.common.ld -T esp32.rom.ld -T esp32.peripherals.ld
+APP_LDFLAGS += $(LDFLAGS) -T esp32_out.ld -T esp32.common.ld -T esp32.rom.ld -T esp32.peripherals.ld -T wifi_iram.ld
 
 # add the application specific CFLAGS
-CFLAGS += $(APP_INC) -DMICROPY_NLR_SETJMP=1 -DMBEDTLS_CONFIG_FILE='"mbedtls/esp_config.h"' -DHAVE_CONFIG_H -DESP_PLATFORM -DFFCONF_H=\"lib/oofatfs/ffconf.h\"
+CFLAGS += $(APP_INC) -DMICROPY_NLR_SETJMP=1 -DMBEDTLS_CONFIG_FILE='"mbedtls/esp_config.h"' -DHAVE_CONFIG_H -DESP_PLATFORM -DFFCONF_H=\"lib/oofatfs/ffconf.h\" -DWITH_POSIX
 CFLAGS_SIGFOX += $(APP_INC) -DMICROPY_NLR_SETJMP=1 -DMBEDTLS_CONFIG_FILE='"mbedtls/esp_config.h"' -DHAVE_CONFIG_H -DESP_PLATFORM
-CFLAGS += -DREGION_AS923 -DREGION_AU915 -DREGION_EU868 -DREGION_US915 -DBASE=0 -DPYBYTES=1 
+CFLAGS += -DREGION_AS923 -DREGION_AU915 -DREGION_EU868 -DREGION_US915 -DREGION_CN470 -DREGION_IN865 -DBASE=0 -DPYBYTES=1 
 # Specify if this is base or Pybytes Firmware
 ifeq ($(VARIANT),BASE)
 CFLAGS += -DVARIANT=0
@@ -371,7 +384,7 @@ else
 	$(error Invalid Variant specified)
 	endif
 endif  
-# Give the possibility to use LittleFs on /flash, otherwise  FatFs is used
+# Give the possibility to use LittleFs on /flash, otherwise FatFs is used
 FS ?= ""
 ifeq ($(FS), LFS)
     CFLAGS += -DFS_USE_LITTLEFS
@@ -439,12 +452,16 @@ ifeq ($(BOARD), FIPY)
     $(BUILD)/lora/spi-board.o: CFLAGS = $(CFLAGS_SIGFOX)
 endif
 
+PART_BIN_8MB = $(BUILD)/lib/partitions_8MB.bin
+PART_BIN_4MB = $(BUILD)/lib/partitions_4MB.bin
+PART_BIN_ENCRYPT_4MB = $(PART_BIN_4MB)_enc
+PART_BIN_ENCRYPT_8MB = $(PART_BIN_8MB)_enc
+APP_BIN_ENCRYPT = $(APP_BIN)_enc
 APP_IMG  = $(BUILD)/appimg.bin
-PART_CSV = lib/partitions.csv
-PART_BIN = $(BUILD)/lib/partitions.bin
-PART_BIN_ENCRYPT = $(PART_BIN)_enc
-APP_BIN_ENCRYPT = $(APP_BIN)_enc_0x10000
-APP_BIN_ENCRYPT_2 = $(APP_BIN)_enc_0x1C0000
+PART_CSV_8MB = lib/partitions_8MB.csv
+PART_CSV_4MB = lib/partitions_4MB.csv
+APP_BIN_ENCRYPT_2_8MB = $(APP_BIN)_enc_0x210000
+APP_BIN_ENCRYPT_2_4MB = $(APP_BIN)_enc_0x1C0000
 
 ESPPORT ?= /dev/ttyUSB0
 ESPBAUD ?= 921600
@@ -457,12 +474,20 @@ PIC_TOOL = $(PYTHON) tools/pypic.py --port $(ESPPORT)
 ENTER_FLASHING_MODE = $(PIC_TOOL) --enter
 EXIT_FLASHING_MODE = $(PIC_TOOL) --exit
 
+ESP_UPDATER_PY = $(PYTHON) ./tools/fw_updater/updater.py
 ESPTOOLPY = $(PYTHON) $(IDF_PATH)/components/esptool_py/esptool/esptool.py --chip esp32
-ESPTOOLPY_SERIAL = $(ESPTOOLPY) --port $(ESPPORT) --baud $(ESPBAUD) --before no_reset --after no_reset
-
+ESPRESET ?= --before default_reset --after no_reset
+ESPTOOLPY_SERIAL = $(ESPTOOLPY) --port $(ESPPORT) --baud $(ESPBAUD) $(ESPRESET)
+ESP_UPDATER_PY_SERIAL = $(ESP_UPDATER_PY) --port $(ESPPORT) --speed $(ESPBAUD)
+BOARD_L = `echo $(BOARD) | tr '[IOY]' '[ioy]'`
+SW_VERSION = `cat pycom_version.h |grep SW_VERSION_NUMBER | cut -d'"' -f2`
 ESPTOOLPY_WRITE_FLASH  = $(ESPTOOLPY_SERIAL) write_flash -z --flash_mode $(ESPFLASHMODE) --flash_freq $(ESPFLASHFREQ) --flash_size $(FLASH_SIZE)
 ESPTOOLPY_ERASE_FLASH  = $(ESPTOOLPY_SERIAL) erase_flash
-ESPTOOL_ALL_FLASH_ARGS = $(BOOT_OFFSET) $(BOOT_BIN) $(PART_OFFSET) $(PART_BIN) $(APP_OFFSET) $(APP_BIN)
+
+ESP_UPDATER_PY_WRITE_FLASH  = $(ESP_UPDATER_PY_SERIAL) flash
+ESP_UPDATER_PY_ERASE_FLASH  = $(ESP_UPDATER_PY_SERIAL) erase_all
+ESP_UPDATER_ALL_FLASH_ARGS = -t $(BUILD_DIR)/$(BOARD_L)-$(SW_VERSION).tar.gz
+ESP_UPDATER_ALL_FLASH_ARGS_ENC = -t $(BUILD_DIR)/$(BOARD_L)-$(SW_VERSION)_ENC.tar.gz --secureboot
 
 ESPSECUREPY = $(PYTHON) $(IDF_PATH)/components/esptool_py/esptool/espsecure.py
 ESPEFUSE = $(PYTHON) $(IDF_PATH)/components/esptool_py/esptool/espefuse.py --port $(ESPPORT)
@@ -475,7 +500,8 @@ SIGN_BINARY = $(ESPSECUREPY) sign_data --keyfile $(SECURE_KEY)
 # $(ENCRYPT_BINARY) $(ENCRYPT_0x10000) -o image_encrypt.bin image.bin
 ENCRYPT_BINARY = $(ESPSECUREPY) encrypt_flash_data --keyfile $(ENCRYPT_KEY)
 ENCRYPT_0x10000 = --address 0x10000
-ENCRYPT_0x1C0000 = --address 0x1C0000
+ENCRYPT_APP_PART_2_8MB = --address 0x210000
+ENCRYPT_APP_PART_2_4MB = --address 0x1C0000
 
 GEN_ESP32PART := $(PYTHON) $(ESP_IDF_COMP_PATH)/partition_table/gen_esp32part.py -q
 
@@ -488,7 +514,7 @@ endif
 ifeq ($(TARGET), boot_app)
 all: $(BOOT_BIN) $(APP_BIN)
 endif
-.PHONY: all
+.PHONY: all CHECK_DEP
 
 $(info $(VARIANT) Variant) 
 ifeq ($(SECURE), on)
@@ -547,17 +573,13 @@ $(BUILD)/bootloader/bootloader.a: $(BOOT_OBJ) sdkconfig.h
 	$(Q) $(AR) cru $@ $^
 
 $(BUILD)/bootloader/bootloader.elf: $(BUILD)/bootloader/bootloader.a $(SECURE_BOOT_VERIFICATION_KEY)
-ifeq ($(COPY_IDF_LIB), 1)
-	$(ECHO) "COPY IDF LIBRARIES $@"
-	$(Q) $(PYTHON) get_idf_libs.py --idflibs $(IDF_PATH)/examples/wifi/scan/build
-endif
 ifeq ($(SECURE), on)
 # unpack libbootloader_support.a, and archive again using the right key for verifying signatures
 	$(ECHO) "Inserting verification key $(SECURE_BOOT_VERIFICATION_KEY) in $@"
 	$(Q) $(RM) -f ./bootloader/lib/bootloader_support_temp
 	$(Q) $(MKDIR)  ./bootloader/lib/bootloader_support_temp
 	$(Q) $(CP) ./bootloader/lib/libbootloader_support.a ./bootloader/lib/bootloader_support_temp/
-	$(Q) $(CD) bootloader/lib/bootloader_support_temp/ ; pwd ;\
+	$(Q) cd bootloader/lib/bootloader_support_temp/ ; pwd ;\
 	$(AR) x libbootloader_support.a ;\
 	$(RM) -f $(SECURE_BOOT_VERIFICATION_KEY).bin.o ;\
 	$(CP) ../../../$(SECURE_BOOT_VERIFICATION_KEY) . ;\
@@ -598,7 +620,15 @@ ifeq ($(SECURE), on)
 	$(ECHO) $(SEPARATOR)
 	$(ECHO) "* Flash: write bootloader_digest + partition + app all encrypted"
 	$(ECHO) "Hint: 'make BOARD=$(BOARD) SECURE=on flash' can be used"
-	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_8MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+else
+ifeq ($(BOARD), $(filter $(BOARD), SIPY))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_8MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+	$(ECHO) "Generating Encrypted Images for 4MB devices, you can use make flash and it would be handled automatically!"
+endif #($(BOARD), $(filter $(BOARD), SIPY))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_4MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+endif #ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
 	$(ECHO) $(SEPARATOR)
 	$(ECHO) $(SEPARATOR)
 endif #ifeq ($(SECURE), on)
@@ -612,17 +642,13 @@ $(BUILD)/application.a: $(OBJ)
 	$(Q) rm -f $@
 	$(Q) $(AR) cru $@ $^
 $(BUILD)/application.elf: $(BUILD)/application.a $(BUILD)/esp32_out.ld $(SECURE_BOOT_VERIFICATION_KEY)
-ifeq ($(COPY_IDF_LIB), 1)
-	$(ECHO) "COPY IDF LIBRARIES $@"
-	$(Q) $(PYTHON) get_idf_libs.py --idflibs $(IDF_PATH)/examples/wifi/scan/build
-endif
 ifeq ($(SECURE), on)
 # unpack libbootloader_support.a, and archive again using the right key for verifying signatures
 	$(ECHO) "Inserting verification key $(SECURE_BOOT_VERIFICATION_KEY) in $@"
 	$(Q) $(RM) -rf ./lib/bootloader_support_temp
 	$(Q) $(MKDIR)  ./lib/bootloader_support_temp
 	$(Q) $(CP) ./lib/libbootloader_support.a ./lib/bootloader_support_temp/
-	$(Q) $(CD) lib/bootloader_support_temp/ ; pwd ;\
+	$(Q) cd lib/bootloader_support_temp/ ; pwd ;\
 	$(AR) x libbootloader_support.a ;\
 	$(RM) -f $(SECURE_BOOT_VERIFICATION_KEY).bin.o ;\
 	$(CP) ../../$(SECURE_BOOT_VERIFICATION_KEY) . ;\
@@ -636,16 +662,31 @@ endif #ifeq ($(SECURE), on)
 	$(Q) $(CC) $(APP_LDFLAGS) $(APP_LIBS) -o $@
 	$(SIZE) $@
 
-$(APP_BIN): $(BUILD)/application.elf $(PART_BIN) $(ORIG_ENCRYPT_KEY)
+$(APP_BIN): $(BUILD)/application.elf $(PART_BIN_4MB) $(PART_BIN_8MB) $(ORIG_ENCRYPT_KEY)
 	$(ECHO) "IMAGE $@"
 	$(Q) $(ESPTOOLPY) elf2image --flash_mode $(ESPFLASHMODE) --flash_freq $(ESPFLASHFREQ) -o $@ $<
 ifeq ($(SECURE), on)
 	$(ECHO) "Signing $@"
 	$(Q) $(SIGN_BINARY) $@
 	$(ECHO) $(SEPARATOR)
-	$(ECHO) "Encrypt image into $(APP_BIN_ENCRYPT) (0x10000 offset) and $(APP_BIN_ENCRYPT_2) (0x1C0000 offset)"
+ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
+	$(ECHO) "Encrypt image into $(APP_BIN_ENCRYPT) (0x10000 offset) and $(APP_BIN_ENCRYPT_2_8MB) (0x210000 offset)"
+else
+ifneq ($(BOARD), $(filter $(BOARD), SIPY))
+	$(ECHO) "Encrypt image into $(APP_BIN_ENCRYPT) (0x10000 offset) and $(APP_BIN_ENCRYPT_2_8MB) (0x210000 offset)"
+	$(ECHO) "And"
+endif
+	$(ECHO) "Encrypt image into $(APP_BIN_ENCRYPT) (0x10000 offset) and $(APP_BIN_ENCRYPT_2_4MB) (0x1C0000 offset)"
+endif
 	$(Q) $(ENCRYPT_BINARY) $(ENCRYPT_0x10000) -o $(APP_BIN_ENCRYPT) $@
-	$(Q) $(ENCRYPT_BINARY) $(ENCRYPT_0x1C0000) -o $(APP_BIN_ENCRYPT_2) $@
+ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
+	$(Q) $(ENCRYPT_BINARY) $(ENCRYPT_APP_PART_2_8MB) -o $(APP_BIN_ENCRYPT_2_8MB) $@
+else
+ifneq ($(BOARD), $(filter $(BOARD), SIPY))
+	$(Q) $(ENCRYPT_BINARY) $(ENCRYPT_APP_PART_2_8MB) -o $(APP_BIN_ENCRYPT_2_8MB) $@
+endif
+	$(Q) $(ENCRYPT_BINARY) $(ENCRYPT_APP_PART_2_4MB) -o $(APP_BIN_ENCRYPT_2_4MB) $@
+endif
 	$(ECHO) "Overwrite $(APP_BIN) with $(APP_BIN_ENCRYPT)"
 	$(CP) -f $(APP_BIN_ENCRYPT) $(APP_BIN)
 	$(ECHO) $(SEPARATOR)
@@ -665,7 +706,15 @@ ifeq ($(SECURE), on)
 	$(ECHO) $(SEPARATOR)
 	$(ECHO) "* Flash: write bootloader_digest + partition + app all encrypted"
 	$(ECHO) "Hint: 'make BOARD=$(BOARD) SECURE=on flash' can be used"
-	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_8MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+else
+ifeq ($(BOARD), $(filter $(BOARD), SIPY))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_8MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+	$(ECHO) "Generating Encrypted Images for 4MB devices, you can use make flash and it would be handled automatically!"
+endif #($(BOARD), $(filter $(BOARD), SIPY))
+	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT_4MB) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
+endif #ifeq ($(BOARD), $(filter $(BOARD), FIPY GPY LOPY4))
 	$(ECHO) $(SEPARATOR)
 	$(ECHO) $(SEPARATOR)
 endif # feq ($(SECURE), on)
@@ -676,50 +725,65 @@ $(BUILD)/esp32_out.ld: $(ESP_IDF_COMP_PATH)/esp32/ld/esp32.ld sdkconfig.h
 endif #ifeq ($(TARGET), $(filter $(TARGET), app boot_app))
 
 release: $(APP_BIN) $(BOOT_BIN)
-	$(Q) tools/makepkg.sh $(BOARD) $(RELEASE_DIR) $(BUILD)
-
-flash: $(APP_BIN) $(BOOT_BIN)	
 	$(ECHO) "checking size of image"
 	$(Q) bash tools/size_check.sh $(BOARD) $(BTYPE) $(VARIANT)
-	$(ECHO) "Entering flash mode"
-	$(Q) $(ENTER_FLASHING_MODE)
+ifeq ($(SECURE), on)
+	$(Q) tools/makepkg.sh $(BOARD) $(RELEASE_DIR) $(BUILD) 1
+else
+	$(Q) tools/makepkg.sh $(BOARD) $(RELEASE_DIR) $(BUILD)
+endif
+
+flash: release
+	$(ECHO) "checking size of image"
+	$(Q) bash tools/size_check.sh $(BOARD) $(BTYPE) $(VARIANT)
+
 	$(ECHO) "Flashing project"
 ifeq ($(SECURE), on)
 	$(ECHO) $(SEPARATOR)
 	$(ECHO) "(Secure boot enabled, so bootloader + digest is flashed)"
 	$(ECHO) $(SEPARATOR)
-	$(ECHO) "$(Q) $(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT) $(APP_OFFSET) $(APP_BIN_ENCRYPT)"
-	$(Q) $(ESPTOOLPY_WRITE_FLASH) 0x0 $(BOOTLOADER_REFLASH_DIGEST_ENC) $(PART_OFFSET) $(PART_BIN_ENCRYPT) $(APP_OFFSET) $(APP_BIN_ENCRYPT)
+	$(ECHO) "$(Q) $(ESP_UPDATER_PY_WRITE_FLASH) $(ESP_UPDATER_ALL_FLASH_ARGS_ENC)"
+	$(Q) $(ESP_UPDATER_PY_WRITE_FLASH) $(ESP_UPDATER_ALL_FLASH_ARGS_ENC)
 else # ifeq ($(SECURE), on)
-	$(ECHO) "$(ESPTOOLPY_WRITE_FLASH) $(ESPTOOL_ALL_FLASH_ARGS)"
-	$(Q) $(ESPTOOLPY_WRITE_FLASH) $(ESPTOOL_ALL_FLASH_ARGS)
-endif #ifeq ($(SECURE), on)
-	$(ECHO) "Exiting flash mode"
-	$(Q) $(EXIT_FLASHING_MODE)
+	$(ECHO) "$(ESP_UPDATER_PY_WRITE_FLASH) $(ESP_UPDATER_ALL_FLASH_ARGS)"
+	$(Q) $(ESP_UPDATER_PY_WRITE_FLASH) $(ESP_UPDATER_ALL_FLASH_ARGS)
+endif
 
 erase:
-	$(ECHO) "Entering flash mode"
-	$(Q) $(ENTER_FLASHING_MODE)
 	$(ECHO) "Erasing flash"
-	$(Q) $(ESPTOOLPY_ERASE_FLASH)
-	$(ECHO) "Exiting flash mode"
-	$(Q) $(EXIT_FLASHING_MODE)
+	$(Q) $(ESP_UPDATER_PY_ERASE_FLASH)
 
-$(PART_BIN): $(PART_CSV) $(ORIG_ENCRYPT_KEY)
-	$(ECHO) "Building partitions from $(PART_CSV)..."
+$(PART_BIN_4MB): $(PART_CSV_4MB) $(ORIG_ENCRYPT_KEY)
+	$(ECHO) "Building partitions from $(PART_CSV_4MB)..."
 	$(Q) $(GEN_ESP32PART) $< $@
 ifeq ($(SECURE), on)
 	$(ECHO) "Signing $@"
 	$(Q) $(SIGN_BINARY) $@
-	$(ECHO) "Encrypt paritions table image into $(PART_BIN_ENCRYPT) (by default 0x8000 offset)"
-	$(Q) $(ENCRYPT_BINARY) --address 0x8000 -o $(PART_BIN_ENCRYPT) $@
+	$(ECHO) "Encrypt paritions table image into $(PART_BIN_ENCRYPT_4MB) (by default 0x8000 offset)"
+	$(Q) $(ENCRYPT_BINARY) --address 0x8000 -o $(PART_BIN_ENCRYPT_4MB) $@
+endif # ifeq ($(SECURE), on)
+$(PART_BIN_8MB): $(PART_CSV_8MB) $(ORIG_ENCRYPT_KEY)
+	$(ECHO) "Building partitions from $(PART_CSV_8MB)..."
+	$(Q) $(GEN_ESP32PART) $< $@
+ifeq ($(SECURE), on)
+	$(ECHO) "Signing $@"
+	$(Q) $(SIGN_BINARY) $@
+	$(ECHO) "Encrypt paritions table image into $(PART_BIN_ENCRYPT_8MB) (by default 0x8000 offset)"
+	$(Q) $(ENCRYPT_BINARY) --address 0x8000 -o $(PART_BIN_ENCRYPT_8MB) $@
 endif # ifeq ($(SECURE), on)
 
-show_partitions: $(PART_BIN)
-	$(ECHO) "Partition table binary generated. Contents:"
+show_partitions: $(PART_BIN_4MB) $(PART_BIN_8MB)
+	$(ECHO) "Partition table 4MB binary generated. Contents:"
 	$(ECHO) $(SEPARATOR)
 	$(Q) $(GEN_ESP32PART) $<
 	$(ECHO) $(SEPARATOR)
+	$(ECHO) "Partition table 8MB binary generated. Contents:"
+	$(ECHO) $(SEPARATOR)
+	$(Q) $(GEN_ESP32PART) $(word 2,$^)
+	$(ECHO) $(SEPARATOR)
+
+flash_mode:
+	$(ENTER_FLASHING_MODE)
 
 MAKE_PINS = boards/make-pins.py
 BOARD_PINS = boards/$(BOARD)/pins.csv
@@ -729,12 +793,26 @@ GEN_PINS_SRC = $(BUILD)/pins.c
 GEN_PINS_HDR = $(HEADER_BUILD)/pins.h
 GEN_PINS_QSTR = $(BUILD)/pins_qstr.h
 
+.NOTPARALLEL: CHECK_DEP $(OBJ)
+.NOTPARALLEL: CHECK_DEP $(BOOT_OBJ)
+
+$(BOOT_OBJ) $(OBJ): | CHECK_DEP
+
 # Making OBJ use an order-only dependency on the generated pins.h file
 # has the side effect of making the pins.h file before we actually compile
 # any of the objects. The normal dependency generation will deal with the
 # case when pins.h is modified. But when it doesn't exist, we don't know
 # which source files might need it.
 $(OBJ): | $(GEN_PINS_HDR)
+
+# Check Dependencies (IDF version, Frozen code and IDF LIBS)
+CHECK_DEP:
+	$(Q) bash tools/idfVerCheck.sh $(IDF_PATH) "$(IDF_VERSION)"
+	$(Q) bash tools/mpy-build-check.sh $(BOARD) $(BTYPE) $(VARIANT)
+ifeq ($(COPY_IDF_LIB), 1)
+	$(ECHO) "COPY IDF LIBRARIES"
+	$(Q) $(PYTHON) get_idf_libs.py --idflibs $(IDF_PATH)/examples/wifi/scan/build
+endif
 
 # Call make-pins.py to generate both pins_gen.c and pins.h
 $(GEN_PINS_SRC) $(GEN_PINS_HDR) $(GEN_PINS_QSTR): $(BOARD_PINS) $(MAKE_PINS) $(AF_FILE) $(PREFIX_FILE) | $(HEADER_BUILD)

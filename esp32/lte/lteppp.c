@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -20,13 +20,15 @@
 #include "tcpip_adapter.h"
 #include "netif/ppp/pppos.h"
 #include "netif/ppp/ppp.h"
-#include "lwip/pppapi.h"
+#include "netif/ppp/pppapi.h"
 
 #include "machpin.h"
 #include "lteppp.h"
 #include "pins.h"
 #include "mpsleep.h"
 #include "esp32_mphal.h"
+#include "lwip/dns.h"
+#include "modlte.h"
 
 /******************************************************************************
  DEFINE CONSTANTS
@@ -49,6 +51,7 @@ typedef enum
  DECLARE EXPORTED DATA
  ******************************************************************************/
 extern TaskHandle_t xLTETaskHndl;
+extern TaskHandle_t xLTEUartEvtTaskHndl;
 SemaphoreHandle_t xLTE_modem_Conn_Sem;
 /******************************************************************************
  DECLARE PRIVATE DATA
@@ -78,11 +81,18 @@ static bool ltepp_ppp_conn_up = false;
 
 static ltepppconnstatus_t lteppp_connstatus = LTE_PPP_IDLE;
 
+static ip_addr_t ltepp_dns_info[2]={0};
+
+static QueueHandle_t uart0_queue;
+
+static bool lte_uart_break_evt = false;
+
 /******************************************************************************
  DECLARE PRIVATE FUNCTIONS
  ******************************************************************************/
 static void TASK_LTE (void *pvParameters);
-static bool lteppp_send_at_cmd_exp(const char *cmd, uint32_t timeout, const char *expected_rsp, void* data_rem);
+static void TASK_UART_EVT (void *pvParameters);
+static bool lteppp_send_at_cmd_exp(const char *cmd, uint32_t timeout, const char *expected_rsp, void* data_rem, size_t len);
 static bool lteppp_send_at_cmd(const char *cmd, uint32_t timeout);
 static bool lteppp_check_sim_present(void);
 static void lteppp_status_cb (ppp_pcb *pcb, int err_code, void *ctx);
@@ -102,6 +112,7 @@ void connect_lte_uart (void) {
     config.stop_bits = UART_STOP_BITS_1;
     config.flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS;
     config.rx_flow_ctrl_thresh = 64;
+    config.use_ref_tick = false;
     uart_param_config(LTE_UART_ID, &config);
 
     // configure the UART pins
@@ -112,8 +123,10 @@ void connect_lte_uart (void) {
 
     vTaskDelay(5 / portTICK_RATE_MS);
 
+    uart_set_hw_flow_ctrl(LTE_UART_ID, UART_HW_FLOWCTRL_DISABLE, 0);
+
     // install the UART driver
-    uart_driver_install(LTE_UART_ID, LTE_UART_BUFFER_SIZE, LTE_UART_BUFFER_SIZE, 0, NULL, 0, NULL);
+    uart_driver_install(LTE_UART_ID, LTE_UART_BUFFER_SIZE, LTE_UART_BUFFER_SIZE, 1, &uart0_queue, 0, NULL);
     lteppp_uart_reg = &UART2;
 
     // disable the delay between transfers
@@ -122,9 +135,9 @@ void connect_lte_uart (void) {
     // configure the rx timeout threshold
     lteppp_uart_reg->conf1.rx_tout_thrhd = 20 & UART_RX_TOUT_THRHD_V;
 
-    uart_set_hw_flow_ctrl(LTE_UART_ID, UART_HW_FLOWCTRL_DISABLE, 0);
     uart_set_rts(LTE_UART_ID, false);
 
+    xTaskCreatePinnedToCore(TASK_UART_EVT, "LTE_UART_EVT", 2048 / sizeof(StackType_t), NULL, 12, &xLTEUartEvtTaskHndl, 1);
 }
 
 
@@ -188,6 +201,14 @@ void lteppp_set_state(lte_state_t state) {
     xSemaphoreGive(xLTESem);
 }
 
+void lteppp_set_default_inf(void)
+{
+    pppapi_set_default(lteppp_pcb);
+    //Restore DNS
+    dns_setserver(0, &(ltepp_dns_info[0]));
+    dns_setserver(1, &(ltepp_dns_info[1]));
+}
+
 void lteppp_set_legacy(lte_legacy_t legacy) {
     xSemaphoreTake(xLTESem, portMAX_DELAY);
     lteppp_lte_legacy = legacy;
@@ -198,6 +219,7 @@ void lteppp_connect (void) {
     uart_flush(LTE_UART_ID);
     vTaskDelay(25);
     pppapi_set_default(lteppp_pcb);
+    ppp_set_usepeerdns(lteppp_pcb, 1);
     pppapi_set_auth(lteppp_pcb, PPPAUTHTYPE_PAP, "", "");
     pppapi_connect(lteppp_pcb, 0);
     lteppp_connstatus = LTE_PPP_IDLE;
@@ -211,12 +233,6 @@ void lteppp_disconnect(void) {
 
 void lteppp_send_at_command (lte_task_cmd_data_t *cmd, lte_task_rsp_data_t *rsp) {
     xQueueSend(xCmdQueue, (void *)cmd, (TickType_t)portMAX_DELAY);
-    xQueueReceive(xRxQueue, rsp, (TickType_t)portMAX_DELAY);
-}
-
-void lteppp_send_at_command_delay (lte_task_cmd_data_t *cmd, lte_task_rsp_data_t *rsp, TickType_t delay) {
-    xQueueSend(xCmdQueue, (void *)cmd, (TickType_t)portMAX_DELAY);
-    vTaskDelay(delay);
     xQueueReceive(xRxQueue, rsp, (TickType_t)portMAX_DELAY);
 }
 
@@ -399,8 +415,9 @@ modem_init:
         xSemaphoreTake(xLTESem, portMAX_DELAY);
         lteppp_modem_conn_state = E_LTE_MODEM_CONNECTING;
         xSemaphoreGive(xLTESem);
-        uart_set_hw_flow_ctrl(LTE_UART_ID, UART_HW_FLOWCTRL_CTS_RTS, 64);
+        uart_set_rts(LTE_UART_ID, true);
         vTaskDelay(500/portTICK_PERIOD_MS);
+        uart_set_hw_flow_ctrl(LTE_UART_ID, UART_HW_FLOWCTRL_CTS_RTS, 64);
         // exit PPP session if applicable
         if(lteppp_send_at_cmd("+++", LTE_PPP_BACK_OFF_TIME_MS))
         {
@@ -486,12 +503,17 @@ modem_init:
 
         // enable airplane low power mode
         lteppp_send_at_cmd("AT!=\"setlpm airplane=1 enable=1\"", LTE_RX_TIMEOUT_MAX_MS);
-
+        // enable Break Signal for URC on UART0
+        lteppp_send_at_cmd("AT+SQNIBRCFG?", LTE_RX_TIMEOUT_MAX_MS);
+        if(!strstr(lteppp_trx_buffer, "+SQNIBRCFG: 1,100"))
+        {
+            lteppp_send_at_cmd("AT+SQNIBRCFG=1,100", LTE_RX_TIMEOUT_MAX_MS);
+        }
         xSemaphoreTake(xLTESem, portMAX_DELAY);
         lteppp_modem_conn_state = E_LTE_MODEM_CONNECTED;
         xSemaphoreGive(xLTESem);
         xSemaphoreGive(xLTE_modem_Conn_Sem);
-
+        lte_state_t state;
         for (;;) {
             vTaskDelay(LTE_TASK_PERIOD_MS);
             xSemaphoreTake(xLTESem, portMAX_DELAY);
@@ -502,11 +524,18 @@ modem_init:
                 goto modem_init;
             }
             xSemaphoreGive(xLTESem);
+            state = lteppp_get_state();
             if (xQueueReceive(xCmdQueue, lteppp_trx_buffer, 0)) {
-                lteppp_send_at_cmd_exp(lte_task_cmd->data, lte_task_cmd->timeout, NULL, &(lte_task_rsp->data_remaining));
+                lteppp_send_at_cmd_exp(lte_task_cmd->data, lte_task_cmd->timeout, NULL, &(lte_task_rsp->data_remaining), lte_task_cmd->dataLen);
                 xQueueSend(xRxQueue, (void *)lte_task_rsp, (TickType_t)portMAX_DELAY);
-            } else {
-                lte_state_t state = lteppp_get_state();
+            }
+            else if(state == E_LTE_PPP && lte_uart_break_evt)
+            {
+                lteppp_send_at_cmd("+++", LTE_PPP_BACK_OFF_TIME_MS);
+                lteppp_suspend();
+            }
+            else
+            {
                 if (state == E_LTE_PPP) {
                     uint32_t rx_len;
                     // check for IP connection
@@ -543,8 +572,48 @@ modem_init:
     goto modem_init;
 }
 
+static void TASK_UART_EVT (void *pvParameters)
+{
+    uart_event_t event;
+    uint8_t buff[50] = {0};
+    for(;;) {
+        //Waiting for UART event.
+        if(xQueueReceive(uart0_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
 
-static bool lteppp_send_at_cmd_exp (const char *cmd, uint32_t timeout, const char *expected_rsp, void* data_rem) {
+            switch(event.type)
+            {
+                case UART_DATA:
+                    if (lte_uart_break_evt) {
+
+                        uint32_t rx_len = uart_read_bytes(LTE_UART_ID, buff, LTE_UART_BUFFER_SIZE,
+                                                                         LTE_TRX_WAIT_MS(LTE_UART_BUFFER_SIZE) / portTICK_RATE_MS);
+
+                        if ((rx_len) && (strstr((const char *)buff, "OK") != NULL))
+                        {
+                            if(strstr((const char *)buff, "+CEREG: 4") != NULL)
+                            {
+                                modlte_urc_events(LTE_EVENT_COVERAGE_LOST);
+                            }
+
+                            lte_uart_break_evt = false;
+                        }
+                    }
+                    break;
+                case UART_BREAK:
+                    if (E_LTE_PPP == lteppp_get_state()) {
+                        lte_uart_break_evt = true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+
+static bool lteppp_send_at_cmd_exp (const char *cmd, uint32_t timeout, const char *expected_rsp, void* data_rem, size_t len) {
 
     if(strstr(cmd, "Pycom_Dummy") != NULL)
     {
@@ -566,7 +635,7 @@ static bool lteppp_send_at_cmd_exp (const char *cmd, uint32_t timeout, const cha
     }
     else
     {
-        uint32_t cmd_len = strlen(cmd);
+        size_t cmd_len = len;
         // char tmp_buf[128];
 #ifdef LTE_DEBUG_BUFF
         if (lteppp_log.ptr < (LTE_LOG_BUFF_SIZE - strlen("[CMD]:") - cmd_len + 1))
@@ -590,7 +659,7 @@ static bool lteppp_send_at_cmd_exp (const char *cmd, uint32_t timeout, const cha
         // then send the command
         uart_write_bytes(LTE_UART_ID, cmd, cmd_len);
         if (strcmp(cmd, "+++")) {
-            uart_write_bytes(LTE_UART_ID, "\r\n", 2);
+            uart_write_bytes(LTE_UART_ID, "\r", 1);
         }
         uart_wait_tx_done(LTE_UART_ID, LTE_TRX_WAIT_MS(cmd_len) / portTICK_RATE_MS);
         vTaskDelay(2 / portTICK_RATE_MS);
@@ -600,7 +669,7 @@ static bool lteppp_send_at_cmd_exp (const char *cmd, uint32_t timeout, const cha
 }
 
 static bool lteppp_send_at_cmd(const char *cmd, uint32_t timeout) {
-    return lteppp_send_at_cmd_exp (cmd, timeout, LTE_OK_RSP, NULL);
+    return lteppp_send_at_cmd_exp (cmd, timeout, LTE_OK_RSP, NULL, strlen(cmd) );
 }
 
 static bool lteppp_check_sim_present(void) {
@@ -656,6 +725,11 @@ static void lteppp_status_cb (ppp_pcb *pcb, int err_code, void *ctx) {
         lte_gw = pppif->gw.u_addr.ip4.addr;
         lte_netmask = pppif->netmask.u_addr.ip4.addr;
         lte_ipv4addr = pppif->ip_addr.u_addr.ip4.addr;
+        if(lte_ipv4addr > 0)
+        {
+            ltepp_dns_info[0] = dns_getserver(0);
+            ltepp_dns_info[1] = dns_getserver(1);
+        }
 //        printf("ipaddr    = %s\n", ipaddr_ntoa(&pppif->ip_addr));
 //        printf("gateway   = %s\n", ipaddr_ntoa(&pppif->gw));
 //        printf("netmask   = %s\n", ipaddr_ntoa(&pppif->netmask));

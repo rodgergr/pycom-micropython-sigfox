@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "apps/sntp/sntp.h"
+#include "lwip/apps/sntp.h"
 
 #include "py/nlr.h"
 #include "py/obj.h"

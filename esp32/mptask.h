@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -32,5 +32,5 @@ extern fs_user_mount_t sflash_vfs_flash;
  ******************************************************************************/
 extern void TASK_Micropython (void *pvParameters);
 extern bool isLittleFs(const TCHAR *path);
-
+extern void mptask_config_wifi(bool force_start);
 #endif /* MPTASK_H_ */

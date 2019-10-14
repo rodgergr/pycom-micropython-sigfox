@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -56,7 +56,7 @@ typedef struct _mp_obj_thread_lock_t {
     volatile bool locked;
 } mp_obj_thread_lock_t;
 
-void mp_thread_preinit(void *stack, uint32_t stack_len);
+void mp_thread_preinit(void *stack, uint32_t stack_len, uint8_t chip_revision);
 void mp_thread_init(void);
 void mp_thread_gc_others(void);
 void mp_thread_deinit(void);

@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -39,6 +39,8 @@
 #ifndef MODUSOCKET_H_
 #define MODUSOCKET_H_
 
+#include "py/stream.h"
+
 #define AF_LORA                             (0xA0)
 #define AF_SIGFOX                           (0xA1)
 
@@ -58,6 +60,8 @@
 
 extern const mp_obj_dict_t socket_locals_dict;
 extern const mp_stream_p_t socket_stream_p;
+
+extern const mp_obj_type_t socket_type;
 
 extern void modusocket_pre_init (void);
 extern void modusocket_socket_add (int32_t sd, bool user);

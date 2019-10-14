@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -134,7 +134,7 @@
 // fatfs configuration used in ffconf.h
 #define MICROPY_FATFS_ENABLE_LFN                    (2)
 #define MICROPY_FATFS_MAX_LFN                       (MICROPY_ALLOC_PATH_MAX)
-#define MICROPY_FATFS_LFN_CODE_PAGE                 (437) // 1=SFN/ANSI 437=LFN/U.S.(OEM)
+#define MICROPY_FATFS_LFN_CODE_PAGE                 437 // 1=SFN/ANSI 437=LFN/U.S.(OEM)
 #define MICROPY_FATFS_RPATH                         (2)
 #define MICROPY_FATFS_REENTRANT                     (1)
 #define MICROPY_FATFS_TIMEOUT                       (5000)
@@ -147,8 +147,8 @@
 #define MICROPY_PY_BUILTINS_INPUT                   (1)
 
 // TODO these should be generic, not bound to fatfs
-#define mp_type_fileio fatfs_type_fileio
-#define mp_type_textio fatfs_type_textio
+#define mp_type_fileio mp_type_vfs_fat_fileio
+#define mp_type_textio mp_type_vfs_fat_textio
 
 // use vfs's functions for import stat and builtin open
 #define mp_import_stat mp_vfs_import_stat
@@ -254,6 +254,7 @@ extern const struct _mp_obj_module_t mp_module_esp_espnow;
     mp_obj_list_t bts_srv_list;                                 \
     mp_obj_list_t bts_attr_list;                                \
     char* lfs_cwd;                                              \
+    mp_obj_t coap_ptr;                                          \
 
 // we need to provide a declaration/definition of alloca()
 #include <alloca.h>
@@ -399,6 +400,21 @@ extern const struct _mp_obj_module_t mp_module_esp_espnow;
     X(MBEDTLS_ERR_SSL_INVALID_VERIFY_HASH)                      \
     X(MBEDTLS_ERR_SSL_CONTINUE_PROCESSING)                      \
     X(MBEDTLS_ERR_SSL_ASYNC_IN_PROGRESS)                        \
+    X(MBEDTLS_ERR_PK_ALLOC_FAILED)                              \
+    X(MBEDTLS_ERR_PK_TYPE_MISMATCH)                             \
+    X(MBEDTLS_ERR_PK_BAD_INPUT_DATA)                            \
+    X(MBEDTLS_ERR_PK_FILE_IO_ERROR)                             \
+    X(MBEDTLS_ERR_PK_KEY_INVALID_VERSION)                       \
+    X(MBEDTLS_ERR_PK_KEY_INVALID_FORMAT)                        \
+    X(MBEDTLS_ERR_PK_UNKNOWN_PK_ALG)                            \
+    X(MBEDTLS_ERR_PK_PASSWORD_REQUIRED)                         \
+    X(MBEDTLS_ERR_PK_PASSWORD_MISMATCH)                         \
+    X(MBEDTLS_ERR_PK_INVALID_PUBKEY)                            \
+    X(MBEDTLS_ERR_PK_INVALID_ALG)                               \
+    X(MBEDTLS_ERR_PK_UNKNOWN_NAMED_CURVE)                       \
+    X(MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE)                       \
+    X(MBEDTLS_ERR_PK_SIG_LEN_MISMATCH)                          \
+    X(MBEDTLS_ERR_PK_HW_ACCEL_FAILED)
 
 #include "mpconfigboard.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -148,8 +148,6 @@ static int32_t mod_ssl_setup_socket (mp_obj_ssl_socket_t *ssl_sock, const char *
             return ret;
         }
     }
-
-    mbedtls_ssl_conf_read_timeout(&ssl_sock->conf, 1000);
 
     ssl_sock->context_fd.fd = ssl_sock->sock_base.u.sd;
     ssl_sock->sock_base.is_ssl = true;

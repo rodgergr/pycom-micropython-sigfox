@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -39,7 +39,6 @@
 #include "rom/spi_flash.h"
 #include "rom/ets_sys.h"
 #include "nvs_flash.h"
-#include "esp_event.h"
 #include "soc/dport_reg.h"
 #include "esp_log.h"
 
@@ -51,10 +50,12 @@
 #include "pins.h"
 #include "mperror.h"
 #include "machtimer.h"
+#include "esp32chipinfo.h"
 
 
 TaskHandle_t mpTaskHandle;
 TaskHandle_t svTaskHandle;
+TaskHandle_t SmartConfTaskHandle;
 #if defined(LOPY) || defined (LOPY4) || defined (FIPY)
 TaskHandle_t xLoRaTaskHndl;
 TaskHandle_t xLoRaTimerTaskHndl;
@@ -64,6 +65,7 @@ TaskHandle_t xSigfoxTaskHndl;
 #endif
 #if defined(GPY) || defined (FIPY)
 TaskHandle_t xLTETaskHndl;
+TaskHandle_t xLTEUartEvtTaskHndl;
 TaskHandle_t xLTEUpgradeTaskHndl;
 #endif
 TaskHandle_t xSocketOpsTaskHndl;
@@ -106,6 +108,8 @@ static StaticTask_t mpTaskTCB;
 *******************************************************************************/
 void app_main(void) {
 
+    esp32_init_chip_info();
+
     // remove all the logs from the IDF
     esp_log_level_set("*", ESP_LOG_NONE);
 
@@ -116,24 +120,23 @@ void app_main(void) {
     machine_init0();
 
     // initalize the non-volatile flash space
-    if (nvs_flash_init() == ESP_ERR_NVS_NO_FREE_PAGES) {
+    esp_err_t ret = nvs_flash_init();
+    if ((ret == ESP_ERR_NVS_NO_FREE_PAGES) || (ret == ESP_ERR_NVS_NEW_VERSION_FOUND)) {
         nvs_flash_erase();
         nvs_flash_init();
     }
-
+#ifndef RGB_LED_DISABLE
     // initialise heartbeat on Core 0
     mperror_pre_init();
+#endif
 
     // differentiate the Flash Size (either 8MB or 4MB) based on ESP32 rev id
-    micropy_hw_flash_size = (esp_get_revision() > 0 ? 0x800000 : 0x400000);
+    micropy_hw_flash_size = (esp32_get_chip_rev() > 0 ? 0x800000 : 0x400000);
 
     // propagating the Flash Size in the global variable (used in multiple IDF modules)
     g_rom_flashchip.chip_size = micropy_hw_flash_size;
 
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-
-    if (chip_info.revision > 0) {
+    if (esp32_get_chip_rev() > 0) {
         micropy_hw_antenna_diversity_pin_num = MICROPY_SECOND_GEN_ANT_SELECT_PIN_NUM;
 
         micropy_lpwan_ncs_pin_index = 1;

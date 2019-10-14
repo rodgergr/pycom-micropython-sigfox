@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
  * see the Pycom Licence v1.0 document supplied with this file, or
  * available at https://www.pycom.io/opensource/licensing
  */
-
+#ifndef RGB_LED_DISABLE
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -22,7 +22,6 @@
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "nvs_flash.h"
-#include "esp_event.h"
 #include "modled.h"
 #include "pycom_config.h"
 
@@ -36,6 +35,7 @@
 #include "freertos/queue.h"
 
 #include "esp_freertos_hooks.h"
+
 
 /******************************************************************************
  DEFINE CONSTANTS
@@ -219,3 +219,33 @@ static void disable_and_wait (void) {
         mp_hal_delay_ms(2);
     }
 }
+
+#else
+#include "py/mpconfig.h"
+#ifndef BOOTLOADER_BUILD
+void NORETURN __fatal_error(const char *msg) {
+#ifdef DEBUG
+    if (msg != NULL) {
+        // wait for 20ms
+        mp_hal_delay_ms(20);
+        mp_hal_stdout_tx_str("\r\nFATAL ERROR:");
+        mp_hal_stdout_tx_str(msg);
+        mp_hal_stdout_tx_str("\r\n");
+    }
+#endif
+
+    for ( ;; ); //{__WFI();}
+}
+
+void nlr_jump_fail(void *val) {
+#ifdef DEBUG
+    char msg[64];
+    snprintf(msg, sizeof(msg), "uncaught exception %p\n", val);
+    __fatal_error(msg);
+#else
+    __fatal_error(NULL);
+#endif
+}
+#endif
+
+#endif // RGB_LED_DISABLE

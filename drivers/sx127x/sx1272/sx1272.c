@@ -1,7 +1,7 @@
 /*
  * This file is derived from the MicroPython project, http://micropython.org/
  *
- * Copyright (c) 2018, Pycom Limited and its licensors.
+ * Copyright (c) 2019, Pycom Limited and its licensors.
  *
  * This software is licensed under the GNU GPL version 3 or any later version,
  * with permitted additional terms. For more information see the Pycom Licence
@@ -54,11 +54,6 @@ typedef struct
  * Private functions prototypes
  */
 
-
-/*!
- * \brief Resets the SX1272
- */
-void SX1272Reset( void );
 
 /*!
  * \brief Sets the SX1272 in transmission mode for the given time
@@ -228,6 +223,11 @@ IRAM_ATTR void SX1272SetChannel( uint32_t freq )
     SX1272Write( REG_FRFMSB, ( uint8_t )( ( freq >> 16 ) & 0xFF ) );
     SX1272Write( REG_FRFMID, ( uint8_t )( ( freq >> 8 ) & 0xFF ) );
     SX1272Write( REG_FRFLSB, ( uint8_t )( freq & 0xFF ) );
+}
+
+IRAM_ATTR uint32_t SX1272GetChannel( void )
+{
+    return SX1272.Settings.Channel;
 }
 
 bool SX1272IsChannelFree( RadioModems_t modem, uint32_t freq, int16_t rssiThresh, uint32_t maxCarrierSenseTime )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Pycom Limited.
+ * Copyright (c) 2019, Pycom Limited.
  *
  * This software is licensed under the GNU GPL version 3 or any
  * later version, with permitted additional terms. For more information
@@ -28,6 +28,7 @@
 #define LORA_STATUS_COMPLETED                                   (0x01)
 #define LORA_STATUS_ERROR                                       (0x02)
 #define LORA_STATUS_MSG_SIZE                                    (0x04)
+#define LORA_STATUS_RESET_DONE                                  (0x08)
 
 /******************************************************************************
  DEFINE TYPES
