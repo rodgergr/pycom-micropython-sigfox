@@ -235,4 +235,4 @@ def runMain():
         if main_stop_flag.locked():
             main_stop_flag.release()
 
-runMain()
+#runMain()

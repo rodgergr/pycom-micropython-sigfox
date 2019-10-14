@@ -257,14 +257,8 @@ soft_reset:
                 config_set_wdt_on_boot(false);
             }
         }
-<<<<<<< HEAD
-        if (wifi_on_boot && !power_fail) {
-            mptask_enable_wifi_ap();
-        }
-=======
         // Config Wifi as per Pycom config
         mptask_config_wifi(false);
->>>>>>> v1.20.1
         // these ones are special because they need uPy running and they launch tasks
 #if defined(LOPY) || defined (LOPY4) || defined (FIPY)
         modlora_init0();
@@ -296,7 +290,6 @@ soft_reset:
     // reset config variables; they should be set by boot.py
     MP_STATE_PORT(machine_config_main) = MP_OBJ_NULL;
 
-<<<<<<< HEAD
     // enable telnet and ftp
     if (wifi_on_boot) {
         servers_start();
@@ -309,8 +302,6 @@ soft_reset:
         disable_display_uart_and_wait();
     }
 
-=======
->>>>>>> v1.20.1
     pyexec_frozen_module("_boot.py");
 
     if (!soft_reset) {
